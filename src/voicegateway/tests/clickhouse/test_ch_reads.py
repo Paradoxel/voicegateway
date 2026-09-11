@@ -264,6 +264,38 @@ def seeded_client(seeded_session):
     return ChdbAdapter(seeded_session)
 
 
+#: One cancelled generation on a model the seed already carries (#280). Latency
+#: an order of magnitude above every real row, so a missing status filter is
+#: unmistakable rather than a few ms of drift.
+_CANCELLED_ROW = {
+    "tenant_id": "acme",
+    "id": "req-acme-cancelled",
+    "ts": _DAY1,
+    "modality": "llm",
+    "provider": "openai",
+    "model_id": "openai/gpt-4o-mini",
+    "cost_usd": 0.0,
+    "status": "cancelled",
+    "ttfb_ms": 9000.0,
+    "total_latency_ms": 9000.0,
+    "session_id": "sess-acme-a",
+    "agent_id": "agent-1",
+}
+
+
+@pytest.fixture
+def client_with_cancelled(ch_session_reads):
+    """Seed rows plus one cancelled generation.
+
+    Deliberately its own fixture rather than an extra row in ``_SEED_ROWS``:
+    three tests assert exact costs and request counts for the acme tenant, and
+    a cancelled row is still a row to them. Keeping it here means the latency
+    predicate gets a witness without moving anyone else's numbers.
+    """
+    _insert(ch_session_reads, [*_SEED_ROWS, _CANCELLED_ROW])
+    return ChdbAdapter(ch_session_reads)
+
+
 # ---------------------------------------------------------------------------
 # Tests: get_cost_summary
 # ---------------------------------------------------------------------------
@@ -493,6 +525,28 @@ class TestGetLatencyStats:
             assert "request_count" in stats
             assert "ttfb_percentiles" in stats
             assert "latency_percentiles" in stats
+
+    async def test_cancelled_rows_are_excluded(self, client_with_cancelled):
+        """#280: cancelled work is not latency the caller experienced.
+
+        The Latency page picks this reader or the SQL one at runtime on whether
+        a ClickHouse client is bound, so a predicate on one side only makes the
+        same page answer two different numbers depending on the backend. The
+        seeded cancelled row is 9000ms against real rows at 100-300ms.
+        """
+        from voicegateway.clickhouse.read_repository import get_latency_stats
+
+        result = await get_latency_stats(
+            client_with_cancelled,
+            tenant="acme",
+            since=float(_DAY0 - 1),
+            until=None,
+        )
+        entry = result["openai/gpt-4o-mini"]
+        assert entry["avg_ttfb_ms"] < 1000.0, (
+            f"cancelled row counted: avg_ttfb_ms={entry['avg_ttfb_ms']}"
+        )
+        assert entry["request_count"] == 1
 
     async def test_percentile_keys_p50_p95_p99(self, seeded_client):
         from voicegateway.clickhouse.read_repository import get_latency_stats

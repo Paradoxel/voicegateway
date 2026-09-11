@@ -143,6 +143,7 @@ SELECT
 FROM telemetry.requests
 WHERE tenant_id = {tenant:String}
   AND timestamp >= fromUnixTimestamp64Milli({since_ms:Int64})
+  AND status NOT IN ('cancelled', 'error')
   __UNTIL__
   __PROJECT__
 GROUP BY model_id
@@ -465,7 +466,12 @@ async def get_latency_stats(
 ) -> dict[str, Any]:
     """Return per-model latency rollup with avg + p50/p95/p99 percentiles.
 
-    Mirrors voicegateway.repository.latency_repository.get_latency_stats.
+    Mirrors voicegateway.repository.latency_repository.get_latency_stats,
+    including its exclusion of cancelled and errored rows (#280): the Latency
+    page picks this or the SQL path at runtime on whether a ClickHouse client
+    is bound, so a filter on one side only makes the same page answer two
+    different numbers. ``status`` is LowCardinality DEFAULT 'success' here and
+    not nullable, so this needs no COALESCE, unlike the SQL column.
     Uses ClickHouse quantilesTDigest(0.5,0.95,0.99)(col) to compute server-side
     percentiles in a single pass (no Python-side sample collection needed).
     A model with no non-null latency samples gets None for each percentile,

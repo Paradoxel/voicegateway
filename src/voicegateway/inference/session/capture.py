@@ -29,6 +29,7 @@ import time
 import uuid
 from typing import TYPE_CHECKING, Any
 
+from voicegateway.core.provider_names import canonical_provider
 from voicegateway.models.request_model import RequestRecord
 
 if TYPE_CHECKING:
@@ -219,17 +220,22 @@ def _provider_name(component: object) -> str:
 
     Prefers the ``livekit.plugins.<provider>`` module segment; falls back to a
     ``provider``/``_provider`` attribute (useful for non-standard wrappers).
+
+    Both are passed through :func:`canonical_provider` because the fallback
+    returns whatever the plugin chose to expose, which is often branded
+    (``Cartesia``) where the module segment is not (``cartesia``). Storing both
+    spellings is what put one provider on the Call detail modal twice (#279).
     """
     module = type(component).__module__ or ""
     parts = module.split(".")
     if "plugins" in parts:
         idx = parts.index("plugins")
         if idx + 1 < len(parts):
-            return parts[idx + 1]
+            return canonical_provider(parts[idx + 1])
     for attr in ("provider", "_provider"):
         value = getattr(component, attr, None)
         if isinstance(value, str) and value:
-            return value
+            return canonical_provider(value)
     return ""
 
 
