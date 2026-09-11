@@ -20,6 +20,12 @@ from voicegateway.tests.server._telemetry_harness import _Harness
 
 @pytest.fixture
 async def db():
+    """Yield a session against a throwaway SQLite file, migrations applied.
+
+    Wraps ``_Harness`` so the temp DB and the ``VOICEGW_DB_PATH`` it sets are
+    both torn down even when a test raises; leaking that env var would point
+    the rest of the suite at a deleted file.
+    """
     harness = _Harness()
     try:
         async with harness.gateway.storage.session() as session:
@@ -160,6 +166,11 @@ async def test_cancelled_generations_do_not_inflate_latency(db):
 
 
 async def test_errored_rows_measure_the_failure_not_the_model(db):
+    """An errored row times out or fails, so it measures neither model.
+
+    Sibling of the cancelled case: same exclusion, different reason. A 30s
+    timeout says nothing about how fast the model answers when it answers.
+    """
     await _seed_request(
         db, id="ok", model_id="m/x", ttfb_ms=120.0, total_latency_ms=400.0
     )
