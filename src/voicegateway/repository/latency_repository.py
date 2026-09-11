@@ -23,6 +23,19 @@ if TYPE_CHECKING:
 _DEFAULT_PERCENTILES: list[float] = [50.0, 95.0, 99.0]
 
 
+#: Rows whose latency the caller never experienced (#280). A cancelled
+#: generation is torn down rather than completed, so its first-token time and
+#: its end time coincide: exactly the shape that made one fast provider report
+#: a p95 first response within 14ms of its p95 total. An errored row timed out
+#: or failed and measures the failure, not the model.
+#:
+#: ``fallback`` is deliberately NOT excluded. A fallback row is traffic that
+#: was really served, just by the second provider, so it belongs in the model's
+#: latency. COALESCE because ``requests.status`` is nullable on older rows, and
+#: ``status NOT IN (...)`` would silently drop every one of them.
+_EXPERIENCED_ONLY = "COALESCE(status, 'success') NOT IN ('cancelled', 'error')"
+
+
 async def get_latency_stats(
     session: AsyncSession,
     period: str = "today",
@@ -37,6 +50,7 @@ async def get_latency_stats(
     params: dict[str, Any] = {"since": since}
     where = (
         "WHERE timestamp >= :since "
+        f"AND {_EXPERIENCED_ONLY} "
         "AND (ttfb_ms IS NOT NULL OR total_latency_ms IS NOT NULL)"
     )
     if project:
@@ -117,7 +131,7 @@ async def get_latency_samples(
     """Return ``(ttfb_samples, total_latency_samples)`` for the window."""
     since = period_since(period)
     params: dict[str, Any] = {"since": since}
-    where = "WHERE timestamp >= :since"
+    where = f"WHERE timestamp >= :since AND {_EXPERIENCED_ONLY}"
     if project:
         where += " AND project = :project"
         params["project"] = project

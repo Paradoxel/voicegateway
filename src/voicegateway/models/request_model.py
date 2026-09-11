@@ -42,7 +42,7 @@ class RequestRecord:
     )
     ttfb_ms: float | None = None
     total_latency_ms: float | None = None
-    status: str = "success"  # 'success', 'error', 'fallback'
+    status: str = "success"  # 'success', 'error', 'fallback', 'cancelled'
     fallback_from: str | None = None
     error_message: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
