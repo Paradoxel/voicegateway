@@ -135,6 +135,25 @@ async def seeded_db_path(tmp_path):
             total_latency_ms=740.0,
             agent_id="a1",
         ),
+        # A cancelled generation on a model the seed already carries (#280).
+        # Its latency is an order of magnitude above the real rows, so if either
+        # backend counts it the parity check below diverges instead of both
+        # being quietly wrong together. Before this row every seeded status
+        # defaulted to 'success', so the parity test could not see a status
+        # predicate added to one reader and not the other.
+        Request(
+            id=str(uuid.uuid4()),
+            timestamp=now - 3600,
+            modality="llm",
+            model_id="openai/gpt-4o-mini",
+            provider="openai",
+            project="prod",
+            cost_usd=0.0,
+            status="cancelled",
+            ttfb_ms=9000.0,
+            total_latency_ms=9000.0,
+            agent_id="a1",
+        ),
     ]
     async with db.session() as s:
         for r in recs:
@@ -185,6 +204,24 @@ async def test_latency_percentiles_match_sqlite(seeded_db_path):
     # percentiles were actually computed (not the empty-input None sentinel);
     # GROUP BY order is arbitrary, so check that at least one model has them.
     assert any(v["latency_percentiles"]["p95"] is not None for v in d.values())
+
+
+async def test_cancelled_rows_excluded_by_both_readers(seeded_db_path):
+    """#280: a cancelled generation is not latency the caller experienced.
+
+    The seed carries one cancelled llm row at 9000ms against real rows in the
+    100-800ms band. Asserting a ceiling rather than an exact value keeps this
+    about the predicate: if either reader stops filtering, the average lands
+    far above anything the seed could otherwise produce.
+    """
+    for engine in ("duckdb", None):
+        stats = await _lat(seeded_db_path, engine).get_stats(period="month")
+        entry = stats["openai/gpt-4o-mini"]
+        assert entry["avg_ttfb_ms"] < 1000.0, (
+            f"{engine or 'sqlite'} counted the cancelled row: "
+            f"avg_ttfb_ms={entry['avg_ttfb_ms']}"
+        )
+        assert entry["latency_percentiles"]["p95"] < 1000.0
 
 
 async def test_engine_off_never_calls_duckdb(seeded_db_path, monkeypatch):

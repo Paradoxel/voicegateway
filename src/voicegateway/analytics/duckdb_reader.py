@@ -72,7 +72,12 @@ def _where(
     include_project: bool = True,
     latency_not_null: bool = False,
 ) -> tuple[str, list[Any]]:
-    """Compose the WHERE clause + positional params, mirroring the ORM repo."""
+    """Compose the WHERE clause + positional params, mirroring the ORM repo.
+
+    'Mirroring' is load-bearing: latency_repository, this reader and the
+    ClickHouse reader are three implementations of the same rollup, and a
+    predicate added to one of them and not the others is a silent divergence.
+    """
     params: list[Any] = [since]
     where = "WHERE timestamp >= ?"
     if until is not None:
@@ -94,7 +99,13 @@ def _where(
             where += " AND agent_id = ?"
             params.append(agent)
     if latency_not_null:
+        # Both clauses define "a latency sample worth averaging", so they travel
+        # together (#280). A cancelled generation is torn down rather than
+        # completed, so its first-token time and its end time coincide and it
+        # measures work the caller never received. Set by the latency rollup
+        # only, so no other aggregation here changes shape.
         where += " AND (ttfb_ms IS NOT NULL OR total_latency_ms IS NOT NULL)"
+        where += " AND COALESCE(status, 'success') NOT IN ('cancelled', 'error')"
     return where, params
 
 
