@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
 
+from voicegateway.core.provider_names import canonical_provider
 from voicegateway.repository import (
     replay_repository as replay,
 )
@@ -140,14 +141,21 @@ async def get_session(session: AsyncSession, session_id: str) -> dict[str, Any] 
         for mod_row in mod_result
     }
 
+    # Two filters, both load-bearing (#279). The SQL drops EOU and replay-state
+    # rows, which carry provider='' by design and rendered as a blank chip.
+    # canonical_provider then collapses rows written before the write paths
+    # agreed on a spelling, so an existing call stops showing 'Cartesia' and
+    # 'cartesia' as two providers without needing a data migration.
     prov_result = await session.execute(
         text(
             "SELECT DISTINCT provider FROM requests "
-            "WHERE session_id = :session_id ORDER BY provider"
+            "WHERE session_id = :session_id "
+            "AND provider IS NOT NULL AND TRIM(provider) != ''"
         ),
         {"session_id": session_id},
     )
-    out["providers"] = [prov_row[0] for prov_row in prov_result]
+    canonical = {canonical_provider(prov_row[0]) for prov_row in prov_result}
+    out["providers"] = sorted(name for name in canonical if name)
     return out
 
 

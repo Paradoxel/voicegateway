@@ -59,6 +59,7 @@ from typing import TYPE_CHECKING, Any
 # purity is preserved by the lazy dispatch, not by dodging the import here.
 from pipecat.observers.base_observer import BaseObserver
 
+from voicegateway.core.provider_names import canonical_provider
 from voicegateway.inference.session.context import (
     current_guard_fallback_from,
     get_or_create_session_id,
@@ -105,6 +106,11 @@ def _provider_from_module(processor: object) -> str:
     (e.g. ``pipecat.services.openai.llm``). We read the segment after
     ``services``. Falls back to the leading token of ``processor.name`` when the
     module is not under a provider package.
+
+    Both paths return a canonical id. The fallback previously returned the raw
+    class name, so ``CartesiaTTSService`` was stored alongside the module path's
+    ``cartesia`` and the Call detail modal showed one provider twice (#279).
+    The comment here already claimed the name was lowercased; it was not.
     """
     module = type(processor).__module__ or ""
     parts = module.split(".")
@@ -114,12 +120,11 @@ def _provider_from_module(processor: object) -> str:
             candidate = parts[idx + 1]
             # Skip the base modules (stt_service/llm_service/tts_service/etc.).
             if candidate and not candidate.endswith("_service"):
-                return candidate
+                return canonical_provider(candidate)
     name = getattr(processor, "name", "") or ""
-    # Processor names look like "OpenAILLMService#0"; strip the "#N" suffix and
-    # lowercase the leading alpha run as a weak provider hint.
-    head = name.split("#", 1)[0]
-    return head or ""
+    # Processor names look like "OpenAILLMService#0"; canonical_provider strips
+    # the "#N" suffix and the service-class suffix, then lowercases.
+    return canonical_provider(name)
 
 
 def _model_from_processor(processor: object) -> str:
