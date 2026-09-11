@@ -50,8 +50,43 @@ def test_a_bare_suffix_is_not_stripped_to_nothing():
 
 
 def test_an_unknown_provider_passes_through_lowercased():
-    """No allowlist: a provider VG has never seen still records."""
+    """No allowlist: a provider VG has never seen still records.
+
+    ``sarvam`` is real and in use but absent from voice-prices 0.6.0, so this
+    is not a hypothetical: an unpriced provider must still meter under a
+    predictable id rather than under a class name.
+    """
     assert canonical_provider("SomeNewVendor") == "somenewvendor"
+    assert canonical_provider("sarvam") == "sarvam"
+    assert canonical_provider("SarvamTTSService#0") == "sarvam"
+
+
+def test_the_catalog_is_the_authority_for_ids_it_carries():
+    """VG must store the id the catalog prices, not a second vocabulary.
+
+    ``component_identity`` builds ``model_id`` as ``provider/model``, so the
+    provider half becomes the pricing key. If this module invented its own
+    spelling, VG would meter under an id the catalog cannot resolve. Asserting
+    against the live catalog means a rename upstream fails here rather than
+    silently unpricing traffic.
+    """
+    from voice_prices.data_snapshot import get_snapshot
+
+    catalog_ids = {p.id for p in get_snapshot().providers}
+    assert "google" in catalog_ids and "gemini" not in catalog_ids
+    for provider_id in catalog_ids:
+        assert canonical_provider(provider_id) == provider_id
+
+
+def test_branded_spellings_resolve_the_way_the_catalog_resolves_them():
+    """The alias table lives in voice-prices; VG does not keep a second one."""
+    from voice_prices.data_snapshot import find_provider_by_id, get_snapshot
+
+    providers = get_snapshot().providers
+    for raw in ("Gemini", "googlegenai", "OpenAILLMService", "DeepgramSTTService"):
+        expected = find_provider_by_id(providers, raw)
+        assert expected is not None, f"catalog no longer resolves {raw!r}"
+        assert canonical_provider(raw) == expected.id
 
 
 def test_already_canonical_input_is_unchanged():
