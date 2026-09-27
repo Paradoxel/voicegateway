@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+from voicegateway.middleware import state_snapshotter_middleware
 from voicegateway.middleware.state_snapshotter_middleware import StateSnapshotter
 
 
@@ -50,15 +51,21 @@ async def test_rate_cap_drops_within_window() -> None:
     assert len(captured) == 1
 
 
-async def test_rate_cap_releases_after_window() -> None:
+async def test_rate_cap_releases_after_window(monkeypatch) -> None:
     captured: list[dict[str, Any]] = []
 
     async def on_snap(snap: dict[str, Any]) -> None:
         captured.append(snap)
 
+    # Fake clock on the module under test only; the event loop keeps the real one.
+    now = 1000.0
+    monkeypatch.setattr(
+        state_snapshotter_middleware, "time", SimpleNamespace(monotonic=lambda: now)
+    )
+
     snapper = StateSnapshotter(on_snapshot=on_snap, min_interval_seconds=0.05)
     await snapper.on_message_added(session_id="s1")
-    await asyncio.sleep(0.08)
+    now += 0.08
     fired2 = await snapper.on_message_added(session_id="s1")
     assert fired2 is True
     assert len(captured) == 2

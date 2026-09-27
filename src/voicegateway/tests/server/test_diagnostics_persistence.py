@@ -70,11 +70,14 @@ class _FakeProbes:
         return {"agents": []}
 
 
-class _SlowProbes(_FakeProbes):
-    """Blocks long enough that a run is observably still in flight."""
+class _GatedProbes(_FakeProbes):
+    """Blocks until the test sets ``release``, so a run is still in flight."""
+
+    def __init__(self) -> None:
+        self.release = asyncio.Event()
 
     async def agents(self, creds: Any) -> dict[str, Any]:
-        await asyncio.sleep(0.2)
+        await self.release.wait()
         return {"agents": []}
 
 
@@ -316,16 +319,20 @@ async def test_in_flight_run_is_served_from_memory_and_listed_once(
     """
     from voicegateway.server.api.dashboard import diagnostics as d
 
-    monkeypatch.setattr(d, "_make_probes", lambda _store: _SlowProbes())
+    probes = _GatedProbes()
+    monkeypatch.setattr(d, "_make_probes", lambda _store: probes)
 
     run_id = await _start(client, ["agents"])
 
-    live = (await client.get(f"/api/diagnostics/runs/{run_id}")).json()
-    assert live["status"] in ("queued", "running")
-    assert live["results"] is None
+    try:
+        live = (await client.get(f"/api/diagnostics/runs/{run_id}")).json()
+        assert live["status"] in ("queued", "running")
+        assert live["results"] is None
 
-    listed = (await client.get("/api/diagnostics/runs")).json()
-    assert [r["run_id"] for r in listed].count(run_id) == 1
+        listed = (await client.get("/api/diagnostics/runs")).json()
+        assert [r["run_id"] for r in listed].count(run_id) == 1
+    finally:
+        probes.release.set()
 
     await _drain(client, run_id)
 
