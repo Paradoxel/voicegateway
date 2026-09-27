@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { json, type SignupMeta } from '../../lib/waitlist';
+import { json, signups } from '../../lib/waitlist';
 
-// On-demand on the Worker: this writes to KV on every request.
+// On-demand on the Worker: this writes to D1 on every request.
 export const prerender = false;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -69,14 +69,14 @@ export const POST: APIRoute = async ({ request }) => {
 
   let isNew = false;
   try {
-    // ponytail: get-then-put is not atomic; a double submit at the same instant can email twice.
-    if ((await env.WAITLIST.get(email)) === null) {
-      const metadata: SignupMeta = { source, ts: new Date().toISOString().slice(0, 19) };
-      await env.WAITLIST.put(email, '', { metadata });
-      isNew = true;
-    }
+    const db = await signups();
+    const result = await db
+      .prepare('INSERT INTO signups (email, source) VALUES (?, ?) ON CONFLICT (email) DO NOTHING')
+      .bind(email, source)
+      .run();
+    isNew = result.meta.changes > 0;
   } catch (err) {
-    console.error('waitlist: kv write failed', err);
+    console.error('waitlist: db insert failed', err);
     return json({ ok: false, error: 'storage error' }, 500);
   }
 

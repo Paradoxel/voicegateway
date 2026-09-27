@@ -3,11 +3,11 @@
 // dashboard shows for one call. Example usage, priced with voice-prices 0.6.0
 // (deepgram/nova-3 for 57 s, gpt-4.1-mini, cartesia/sonic-3), labelled as example.
 const rows = [
-  { stage: 'STT', model: 'deepgram/nova-3', units: '0.95 audio min', cost: '$0.0046' },
-  { stage: 'LLM', model: 'openai/gpt-4.1-mini', units: '1,320 in, 220 out', cost: '$0.0009' },
-  { stage: 'TTS', model: 'cartesia/sonic-3', units: '860 chars', cost: '$0.0344' },
+  { stage: 'STT', model: 'deepgram/nova-3', units: '0.95 audio min', cost: '$0.00456' },
+  { stage: 'LLM', model: 'openai/gpt-4.1-mini', units: '1,320 in, 220 out', cost: '$0.00088' },
+  { stage: 'TTS', model: 'cartesia/sonic-3', units: '860 chars', cost: '$0.03440' },
 ];
-const total = '$0.0398';
+const total = '$0.03984';
 const spans = [
   { label: 'STT final', start: 0, ms: 180 },
   { label: 'LLM first token', start: 180, ms: 320 },
@@ -74,7 +74,7 @@ const ttfa = 640;
   .costs td { padding: 0.7rem 1rem; border-bottom: 1px solid var(--vg-line); vertical-align: baseline; }
   .stage { color: var(--vg-muted); width: 3rem; }
   .cost { text-align: right; white-space: nowrap; }
-  .model { display: block; white-space: nowrap; }
+  .model { display: block; overflow-wrap: anywhere; }
   .units { display: block; margin-top: 0.15rem; font-size: 0.75rem; }
   tfoot td { border-bottom: 0; font-weight: 500; }
   .total { color: var(--vg-accent); }

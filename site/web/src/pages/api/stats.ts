@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { json, listSignups } from '../../lib/waitlist';
+import { json, signups } from '../../lib/waitlist';
 
 // GET /api/stats?key=STATS_KEY
 // Waitlist signups: total, by source, by day, and the recent list, emails
@@ -59,18 +59,23 @@ export const GET: APIRoute = async ({ request }) => {
 
   let stats: Stats;
   try {
-    const all = (await listSignups()).sort((a, b) => b.ts.localeCompare(a.ts));
-    const count = (key: (s: (typeof all)[number]) => string) =>
-      all.reduce<Record<string, number>>((acc, s) => ((acc[key(s)] = (acc[key(s)] ?? 0) + 1), acc), {});
-    const byDay = count((s) => s.ts.slice(0, 10));
+    const db = await signups();
+    const [total, bySource, byDay, recent] = await db.batch([
+      db.prepare('SELECT count(*) AS n FROM signups'),
+      db.prepare('SELECT source, count(*) AS n FROM signups GROUP BY source ORDER BY n DESC'),
+      db.prepare('SELECT substr(created_at, 1, 10) AS day, count(*) AS n FROM signups GROUP BY day ORDER BY day DESC LIMIT 30'),
+      db.prepare('SELECT email, source, created_at AS ts FROM signups ORDER BY created_at DESC LIMIT 200'),
+    ]);
+    const counts = (rows: unknown[], k: string) =>
+      Object.fromEntries((rows as Record<string, string | number>[]).map((r) => [r[k], Number(r.n)]));
     stats = {
-      total: all.length,
-      bySource: Object.fromEntries(Object.entries(count((s) => s.source)).sort((a, b) => b[1] - a[1])),
-      byDay: Object.fromEntries(Object.entries(byDay).slice(0, 30)),
-      recent: all.slice(0, 200),
+      total: Number((total.results[0] as { n: number } | undefined)?.n ?? 0),
+      bySource: counts(bySource.results, 'source'),
+      byDay: counts(byDay.results, 'day'),
+      recent: recent.results as Stats['recent'],
     };
   } catch (err) {
-    console.error('stats: kv list failed', err);
+    console.error('stats: query failed', err);
     return json({ ok: false, error: 'query failed' }, 500, NO_STORE);
   }
 

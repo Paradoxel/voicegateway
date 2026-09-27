@@ -1,26 +1,22 @@
 import { env } from 'cloudflare:workers';
 
-// Signups live in Workers KV: key is the email, metadata holds source and time,
-// so a single list() pass returns everything the stats page needs.
-export interface SignupMeta {
-  source: string;
-  ts: string;
-}
+// Signups live in D1. The email primary key is what makes a signup count once:
+// INSERT ... ON CONFLICT DO NOTHING is atomic, which a KV read-then-write is not.
+let tableReady = false;
 
-export interface Signup extends SignupMeta {
-  email: string;
-}
-
-export async function listSignups(): Promise<Signup[]> {
-  const out: Signup[] = [];
-  let cursor: string | undefined;
-  // ponytail: full scan on every stats call, fine for thousands of keys; move to D1 if it grows.
-  do {
-    const page = await env.WAITLIST.list<SignupMeta>({ cursor });
-    for (const k of page.keys) out.push({ email: k.name, source: k.metadata?.source ?? 'unknown', ts: k.metadata?.ts ?? '' });
-    cursor = page.list_complete ? undefined : page.cursor;
-  } while (cursor);
-  return out;
+export async function signups(): Promise<D1Database> {
+  if (!tableReady) {
+    // Idempotent and cheap once the table exists; the flag skips it on warm isolates.
+    await env.DB.prepare(
+      `CREATE TABLE IF NOT EXISTS signups (
+        email TEXT PRIMARY KEY,
+        source TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%S', 'now'))
+      )`,
+    ).run();
+    tableReady = true;
+  }
+  return env.DB;
 }
 
 export function json(body: unknown, status = 200, extra: Record<string, string> = {}): Response {

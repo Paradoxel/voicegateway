@@ -3,9 +3,9 @@
 ---
 <form class="waitlist" data-waitlist novalidate>
   <label class="visually-hidden" for="waitlist-email">Email address</label>
-  <input id="waitlist-email" name="email" type="email" required autocomplete="email" placeholder="you@company.com" />
+  <input id="waitlist-email" name="email" type="email" required autocomplete="email" placeholder="you@company.com" aria-describedby="waitlist-status" />
   <button class="btn btn-primary" type="submit">Join the waitlist</button>
-  <p class="status" role="status" aria-live="polite"></p>
+  <p id="waitlist-status" class="status" role="status" aria-live="polite" tabindex="-1"></p>
 </form>
 
 <script>
@@ -14,13 +14,15 @@
     event.preventDefault();
     const input = form.querySelector('input')!;
     const button = form.querySelector('button')!;
-    const status = form.querySelector('.status')!;
+    const status = form.querySelector<HTMLElement>('.status')!;
     const email = input.value.trim();
     if (!email) {
       status.textContent = 'Enter an email address first.';
+      input.setAttribute('aria-invalid', 'true');
       input.focus();
       return;
     }
+    input.removeAttribute('aria-invalid');
     button.disabled = input.disabled = true;
     button.textContent = 'Joining';
     status.textContent = '';
@@ -31,10 +33,16 @@
         body: JSON.stringify({ email, source: 'landing' }),
       });
       if (res.ok) {
-        form.innerHTML = '<p class="done">You are on the list. We will write once, when it ships.</p>';
+        // Keep the live region so the confirmation is announced, and move focus to it.
+        input.remove();
+        button.remove();
+        status.classList.add('done');
+        status.textContent = 'You are on the list. We will write once, when it ships.';
+        status.focus();
         return;
       }
       const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (body.error === 'invalid email') input.setAttribute('aria-invalid', 'true');
       status.textContent =
         body.error === 'invalid email'
           ? 'That email address does not look right. Check it and try again.'
@@ -62,5 +70,6 @@
   input::placeholder { color: var(--vg-muted); }
   input:focus-visible { outline: 2px solid var(--vg-accent); outline-offset: 1px; }
   .status { flex-basis: 100%; min-height: 1.25rem; font-size: 0.875rem; color: var(--vg-bad); }
-  .waitlist :global(.done) { color: var(--vg-good); }
+  .status.done { color: var(--vg-good); }
+  .status:focus { outline: none; }
 </style>

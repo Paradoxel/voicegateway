@@ -1,6 +1,6 @@
 // voicegateway.dev: prerendered pages served as static assets, plus the Worker for
 // the on-demand routes (/api/waitlist, /api/stats, /demo/*). Signups are stored
-// in the WAITLIST KV namespace.
+// in the voicegateway-waitlist D1 database.
 //
 // Secrets, set once with `npx wrangler secret put <NAME>`:
 //   STATS_KEY           guards /api/stats
@@ -16,7 +16,9 @@
     "binding": "ASSETS",
     "html_handling": "drop-trailing-slash"
   },
-  "kv_namespaces": [{ "binding": "WAITLIST", "id": "306537da7cb64543b4dd7d7ff5360aec" }],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "voicegateway-waitlist", "database_id": "087d0e19-3e37-49a2-8750-ce52072a4f3c" }
+  ],
   "routes": [{ "pattern": "voicegateway.dev", "custom_domain": true }],
   "observability": { "logs": { "enabled": true } }
 }
