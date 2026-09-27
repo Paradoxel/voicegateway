@@ -11,6 +11,10 @@ be constructive, assume good intent.
 
 ## Ways to contribute
 
+- **Pick up a good first issue.** Issues labelled
+  [good first issue](https://github.com/mahimailabs/voicegateway/issues?q=is%3Aopen+label%3A%22good+first+issue%22)
+  name the files, the change and the test. Comment `.take` to claim one
+  (first comment wins), then open a PR with `Closes #<issue>`.
 - **Report a bug.** Open an issue using the **Bug Report** template.
   Include VoiceGateway version (`voicegw --version`), Python version,
   OS, and a minimal reproducible example. Redact API keys in any log

@@ -1,0 +1,26 @@
+name: Bug report
+description: Something VoiceGateway records, prices or shows is wrong.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The smallest agent or command that shows it. Redact API keys.
+      render: python
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versions
+      description: Output of `voicegw --version`, your Python version, and LiveKit Agents or Pipecat version.
+    validations:
+      required: true
