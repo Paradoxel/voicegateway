@@ -383,11 +383,8 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
-# Docs (rendered elsewhere)
-docs/.vitepress/
+# Docs app build output and deps (docs/.gitignore covers the rest)
 docs/node_modules/
-docs/package-lock.json
-docs/reference/changelog.md
 
 # Local Alembic sandbox DB created by 'alembic check' against the
 # fallback alembic.ini URL. Real DBs live under ~/.config/voicegateway/.
