@@ -753,58 +753,49 @@ def test_reconcile_json_format(temp_config, tmp_path, monkeypatch):
     assert line["cost_diff_abs"] == pytest.approx(0.030, abs=0.001)
 
 
-def test_reconcile_unknown_provider_returns_2(temp_config, tmp_path):
-    """Unknown provider exits 2 before touching storage or files."""
-    fake_file = tmp_path / "fake.csv"
-    fake_file.write_text("model\n")
-    result = runner.invoke(
-        app,
-        [
-            "reconcile",
-            "--config",
-            temp_config,
-            "--provider",
-            "anthropic",  # not yet supported
-            "--start",
+@pytest.mark.parametrize(
+    ("provider", "start", "file_exists", "extra_args", "message"),
+    [
+        # Unknown provider exits 2 before touching storage or files.
+        pytest.param(
+            "anthropic",
             "2026-05-01",
-            "--end",
-            "2026-05-04",
-            "--provider-usage-file",
-            str(fake_file),
-        ],
-    )
-    assert result.exit_code == 2
-    assert "Unsupported provider" in result.output
-
-
-def test_reconcile_missing_provider_file_returns_2(temp_config, tmp_path, monkeypatch):
-    """Missing provider-usage-file path exits 2 with a clear error."""
-    db_path = str(tmp_path / "reconcile-missing.db")
-    monkeypatch.setenv("VOICEGW_DB_PATH", db_path)
-    result = runner.invoke(
-        app,
-        [
-            "reconcile",
-            "--config",
-            temp_config,
-            "--provider",
+            True,
+            [],
+            "Unsupported provider",
+            id="unknown-provider",
+        ),
+        # Missing provider-usage-file path exits 2 with a clear error.
+        pytest.param(
+            "openai", "2026-05-01", False, [], "not found", id="missing-provider-file"
+        ),
+        # Unknown --format exits 2 before touching storage.
+        pytest.param(
             "openai",
-            "--start",
             "2026-05-01",
-            "--end",
-            "2026-05-04",
-            "--provider-usage-file",
-            str(tmp_path / "absent.csv"),
-        ],
-    )
-    assert result.exit_code == 2
-    assert "not found" in result.output
-
-
-def test_reconcile_invalid_format_returns_2(temp_config, tmp_path):
-    """Unknown --format exits 2 before touching storage."""
-    fake_file = tmp_path / "fake.csv"
-    fake_file.write_text("model\n")
+            True,
+            ["--format", "xml"],
+            "Unknown format",
+            id="invalid-format",
+        ),
+        # Malformed --start exits 2.
+        pytest.param("openai", "not-a-date", True, [], "YYYY-MM-DD", id="invalid-date"),
+    ],
+)
+def test_reconcile_bad_arguments_return_2(
+    temp_config,
+    tmp_path,
+    monkeypatch,
+    provider,
+    start,
+    file_exists,
+    extra_args,
+    message,
+):
+    monkeypatch.setenv("VOICEGW_DB_PATH", str(tmp_path / "reconcile-bad-args.db"))
+    provider_file = tmp_path / "provider.csv"
+    if file_exists:
+        provider_file.write_text("model\n")
     result = runner.invoke(
         app,
         [
@@ -812,43 +803,18 @@ def test_reconcile_invalid_format_returns_2(temp_config, tmp_path):
             "--config",
             temp_config,
             "--provider",
-            "openai",
+            provider,
             "--start",
-            "2026-05-01",
+            start,
             "--end",
             "2026-05-04",
             "--provider-usage-file",
-            str(fake_file),
-            "--format",
-            "xml",
+            str(provider_file),
+            *extra_args,
         ],
     )
     assert result.exit_code == 2
-    assert "Unknown format" in result.output
-
-
-def test_reconcile_invalid_date_returns_2(temp_config, tmp_path):
-    """Malformed --start exits 2."""
-    fake_file = tmp_path / "fake.csv"
-    fake_file.write_text("model\n")
-    result = runner.invoke(
-        app,
-        [
-            "reconcile",
-            "--config",
-            temp_config,
-            "--provider",
-            "openai",
-            "--start",
-            "not-a-date",
-            "--end",
-            "2026-05-04",
-            "--provider-usage-file",
-            str(fake_file),
-        ],
-    )
-    assert result.exit_code == 2
-    assert "YYYY-MM-DD" in result.output
+    assert message in result.output
 
 
 def test_reconcile_threshold_flag_propagates(temp_config, tmp_path, monkeypatch):
@@ -1001,14 +967,24 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _USAGE_EXPORTS_DIR = _REPO_ROOT / "tests" / "fixtures" / "usage_exports"
 
 
-def test_reconcile_runs_against_committed_openai_sample(
-    temp_config, tmp_path, monkeypatch
+@pytest.mark.parametrize(
+    ("provider", "matched_in_vg"),
+    [
+        # _seed_reconcile_records logs gpt-4o-mini and nova-3 on the VG side
+        # and nothing for cartesia; every other sample model is provider-only.
+        ("openai", {"gpt-4o-mini": True, "gpt-4o": False, "gpt-4-turbo": False}),
+        ("deepgram", {"nova-3": True, "nova-2": False, "flux-general": False}),
+        ("cartesia", {"sonic-3": False, "sonic-turbo": False}),
+    ],
+)
+def test_reconcile_runs_against_committed_sample(
+    temp_config, tmp_path, monkeypatch, provider, matched_in_vg
 ):
-    """End-to-end reconcile against the committed openai-sample.csv."""
+    """End-to-end reconcile against the committed <provider>-sample.csv."""
     import asyncio
     import json as _json
 
-    db_path = str(tmp_path / "reconcile-openai-sample.db")
+    db_path = str(tmp_path / f"reconcile-{provider}-sample.db")
     monkeypatch.setenv("VOICEGW_DB_PATH", db_path)
     start, end = asyncio.run(_seed_reconcile_records(db_path))
 
@@ -1019,116 +995,25 @@ def test_reconcile_runs_against_committed_openai_sample(
             "--config",
             temp_config,
             "--provider",
-            "openai",
+            provider,
             "--start",
             start,
             "--end",
             end,
             "--provider-usage-file",
-            str(_USAGE_EXPORTS_DIR / "openai-sample.csv"),
+            str(_USAGE_EXPORTS_DIR / f"{provider}-sample.csv"),
             "--format",
             "json",
         ],
     )
     assert result.exit_code == 0, result.output
     payload = _json.loads(result.output)
-    assert payload["provider"] == "openai"
+    assert payload["provider"] == provider
     rows = {row["model"]: row for row in payload["rows"]}
-    # Three OpenAI models in the sample fixture; all three appear.
-    assert {"gpt-4o-mini", "gpt-4o", "gpt-4-turbo"}.issubset(rows.keys())
-    # gpt-4o-mini is seeded on the VG side and present in the
-    # provider sample -> matched on both sides.
-    assert rows["gpt-4o-mini"]["matched_in_vg"] is True
-    assert rows["gpt-4o-mini"]["matched_in_provider"] is True
-    # gpt-4o and gpt-4-turbo are provider-only.
-    for m in ("gpt-4o", "gpt-4-turbo"):
-        assert rows[m]["matched_in_vg"] is False
-        assert rows[m]["matched_in_provider"] is True
-
-
-def test_reconcile_runs_against_committed_deepgram_sample(
-    temp_config, tmp_path, monkeypatch
-):
-    """End-to-end reconcile against the committed deepgram-sample.csv."""
-    import asyncio
-    import json as _json
-
-    db_path = str(tmp_path / "reconcile-deepgram-sample.db")
-    monkeypatch.setenv("VOICEGW_DB_PATH", db_path)
-    start, end = asyncio.run(_seed_reconcile_records(db_path))
-
-    result = runner.invoke(
-        app,
-        [
-            "reconcile",
-            "--config",
-            temp_config,
-            "--provider",
-            "deepgram",
-            "--start",
-            start,
-            "--end",
-            end,
-            "--provider-usage-file",
-            str(_USAGE_EXPORTS_DIR / "deepgram-sample.csv"),
-            "--format",
-            "json",
-        ],
-    )
-    assert result.exit_code == 0, result.output
-    payload = _json.loads(result.output)
-    assert payload["provider"] == "deepgram"
-    rows = {row["model"]: row for row in payload["rows"]}
-    assert {"nova-3", "nova-2", "flux-general"}.issubset(rows.keys())
-    # Per _seed_reconcile_records, VG has nova-3 records; the
-    # provider sample also has nova-3 -> matched_in_vg AND
-    # matched_in_provider both True for nova-3.
-    assert rows["nova-3"]["matched_in_vg"] is True
-    assert rows["nova-3"]["matched_in_provider"] is True
-    # nova-2 / flux-general are provider-only.
-    assert rows["nova-2"]["matched_in_vg"] is False
-    assert rows["flux-general"]["matched_in_vg"] is False
-
-
-def test_reconcile_runs_against_committed_cartesia_sample(
-    temp_config, tmp_path, monkeypatch
-):
-    """End-to-end reconcile against the committed cartesia-sample.csv."""
-    import asyncio
-    import json as _json
-
-    db_path = str(tmp_path / "reconcile-cartesia-sample.db")
-    monkeypatch.setenv("VOICEGW_DB_PATH", db_path)
-    start, end = asyncio.run(_seed_reconcile_records(db_path))
-
-    result = runner.invoke(
-        app,
-        [
-            "reconcile",
-            "--config",
-            temp_config,
-            "--provider",
-            "cartesia",
-            "--start",
-            start,
-            "--end",
-            end,
-            "--provider-usage-file",
-            str(_USAGE_EXPORTS_DIR / "cartesia-sample.csv"),
-            "--format",
-            "json",
-        ],
-    )
-    assert result.exit_code == 0, result.output
-    payload = _json.loads(result.output)
-    assert payload["provider"] == "cartesia"
-    rows = {row["model"]: row for row in payload["rows"]}
-    assert {"sonic-3", "sonic-turbo"}.issubset(rows.keys())
-    # No VG cartesia records seeded; both rows show provider-only.
-    assert all(
-        rows[m]["matched_in_provider"] is True and rows[m]["matched_in_vg"] is False
-        for m in ("sonic-3", "sonic-turbo")
-    )
+    assert set(matched_in_vg).issubset(rows.keys())
+    for model, in_vg in matched_in_vg.items():
+        assert rows[model]["matched_in_vg"] is in_vg, model
+        assert rows[model]["matched_in_provider"] is True, model
 
 
 # ---------------------------------------------------------------------------
