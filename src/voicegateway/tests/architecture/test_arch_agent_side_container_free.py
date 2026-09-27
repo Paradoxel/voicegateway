@@ -1,9 +1,9 @@
 """The agent-side code never touches the dependency-injection container.
 
 ``attach()``, ``guard()``, the sinks and the fleet heartbeat run inside the
-user's agent process. ``dependency-injector`` ships only with the
-``[dashboard]`` extra, and wiring patches the modules it is wired into, so
-none of that has any business in someone else's process. The container is the
+user's agent process. Wiring patches the modules it is wired into, and a
+container would be a second composition root beside the user's own, so none
+of that has any business in someone else's process. The container is the
 server's composition root and stays there.
 
 Two checks. The static one walks every import, including the lazy ones inside
