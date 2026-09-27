@@ -352,7 +352,7 @@ def test_establishment_gate(attempted, succeeded, bar, status: str) -> None:
     kw = {} if bar is None else {"threshold": bar}
     gate = gates.establishment_gate(attempted=attempted, succeeded=succeeded, **kw)
     assert gate.status == status
-    assert gate.threshold == (bar or gates.MIN_ESTABLISHMENT_RATIO)
+    assert gate.threshold == (gates.MIN_ESTABLISHMENT_RATIO if bar is None else bar)
     if status == U:
         assert gate.metric is None and gate.value is None
     else:

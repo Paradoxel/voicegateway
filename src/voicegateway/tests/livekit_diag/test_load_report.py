@@ -14,10 +14,13 @@ measured-ness without holding the bytes that prove it.
 from __future__ import annotations
 
 import json
+import os
+import re
+from pathlib import Path
 
 import pytest
 
-from voicegateway.livekit_diag import run_report
+from voicegateway.livekit_diag import gates, run_report
 
 SYNTHETIC_RUN = {
     "id": "ramp-500",
@@ -104,44 +107,18 @@ def test_provenance_cannot_be_asserted_without_the_artifact() -> None:
 # --------------------------------------------------------------------------
 
 
-def test_a_fixture_built_payload_cannot_render_an_unstamped_file() -> None:
-    """The single most important assertion in this file."""
-    document = run_report.render_load_html(_payload())
-    assert run_report.SYNTHETIC_STAMP in document
+def test_the_stamp_opens_a_synthetic_file_and_is_absent_from_a_measured_one() -> None:
+    """The single most important rule in this file, kept explicit.
 
-
-def test_the_stamp_is_the_first_visible_element() -> None:
-    """A footer would be scrolled past. The body opens with it.
-
-    Anyone who jumps straight to the numbers passes the banner on the way.
-    """
-    document = run_report.render_load_html(_payload())
-    body = document[document.index("<body>") + len("<body>") :]
-    assert body.lstrip().startswith('<div class="stamp">')
-    # And it precedes every number in the document.
-    assert body.index(run_report.SYNTHETIC_STAMP) < body.index("492")
-
-
-def test_a_measured_run_is_not_stamped() -> None:
-    """Non-vacuous: the stamp is conditional, not unconditional markup."""
-    document = run_report.render_load_html(_payload(MEASURED_RUN))
-    assert run_report.SYNTHETIC_STAMP not in document
-    assert 'class="stamp"' not in document
-
-
-def test_the_stamp_carries_no_customer_wording() -> None:
-    """It says the file is not a deliverable, and nothing about who for.
-
-    Scoped to the stamp block rather than the whole document on purpose: the
-    inherited limits mention the LiveKit "client SDK", which is the name of a
-    piece of software and not a reference to anybody's customer.
+    First element in the body so anybody jumping to the numbers passes it, and
+    conditional so it is not unconditional markup.
     """
     assert run_report.SYNTHETIC_STAMP == "SYNTHETIC DATA: NOT A DELIVERABLE"
     document = run_report.render_load_html(_payload())
-    stamp = document[document.index('<div class="stamp">') : document.index("<h1>")]
-    lowered = stamp.lower()
-    for word in ("client", "customer", "engagement", "deliverable for"):
-        assert word not in lowered, f"the stamp says {word!r}"
+    body = document[document.index("<body>") + len("<body>") :]
+    assert body.startswith(f'<div class="stamp"><strong>{run_report.SYNTHETIC_STAMP}')
+    measured = run_report.render_load_html(_payload(MEASURED_RUN))
+    assert 'class="stamp"' not in measured
 
 
 # --------------------------------------------------------------------------
@@ -195,54 +172,6 @@ def test_an_unmeasured_value_renders_as_words_never_as_zero() -> None:
 
 
 # --------------------------------------------------------------------------
-# Capacity
-# --------------------------------------------------------------------------
-
-
-def test_a_missing_capacity_figure_is_explained_not_omitted() -> None:
-    """A silently absent table reads as a table nobody needed."""
-    document = run_report.render_load_html(_payload())
-    assert "No capacity table" in document
-    assert "inventing" in document
-
-
-def test_a_refused_figure_carries_the_reason_it_was_refused() -> None:
-    payload = _payload(
-        capacity={
-            "calls_per_node": None,
-            "reason": "the ramp plateaued at 124, which is the generator's ceiling",
-        }
-    )
-    document = run_report.render_load_html(payload)
-    assert "plateaued" in document
-
-
-def test_a_capacity_table_renders_every_tier_with_its_spare() -> None:
-    payload = _payload(
-        capacity={
-            "calls_per_node": 150,
-            "reason": "highest concurrency sustained at or under 70% CPU",
-            "tiers": [
-                {
-                    "target_concurrency": 500,
-                    "nodes_for_load": 4,
-                    "spare_nodes": 1,
-                    "nodes": 5,
-                }
-            ],
-            "instance_type": {
-                "name": "c7i.2xlarge",
-                "role": "SIP",
-                "citation": "sizing-runbook.md:115",
-            },
-        }
-    )
-    document = run_report.render_load_html(payload)
-    assert "sizing-runbook.md:115" in document
-    assert "Nothing here derives a machine type" in document
-
-
-# --------------------------------------------------------------------------
 # Gates and limits
 # --------------------------------------------------------------------------
 
@@ -260,8 +189,6 @@ def test_gates_are_read_never_re_judged() -> None:
         ]
     )
     assert payload["gates_recorded"] is True
-    document = run_report.render_load_html(payload)
-    assert "WAIVED" in document
 
 
 def test_a_run_with_no_recorded_gates_says_so() -> None:
@@ -277,12 +204,6 @@ def test_the_unmeasured_list_names_every_known_gap() -> None:
         assert gap in limits, gap
     # And it inherits the shared limits rather than replacing them.
     assert "single-vantage" in limits or "one vantage point" in limits
-
-
-def test_overlap_is_never_described_as_attribution() -> None:
-    document = run_report.render_load_html(_payload())
-    assert "time overlap" in document
-    assert "never that a node served" in document
 
 
 # --------------------------------------------------------------------------
@@ -364,37 +285,6 @@ def test_absolute_urls_are_reduced_to_a_host_label() -> None:
     assert run_report.redact_urls("-l 500 -r 4.1667") == "-l 500 -r 4.1667"
 
 
-def test_an_appendix_carrying_a_url_still_renders_a_self_contained_file() -> None:
-    """The whole reason redaction happens before the HTML is built."""
-    document = run_report.render_load_html(_payload(appendix=_appendix()))
-    lowered = document.lower()
-    for marker in ("http://", "https://", "wss://", "src=", "url("):
-        assert marker not in lowered, f"appendix leaked {marker!r}"
-    # The host survived, because a reader reproducing a run needs to know which.
-    assert "media.example.com" in document
-
-
-def test_the_appendix_renders_every_section_with_its_citation() -> None:
-    document = run_report.render_load_html(_payload(appendix=_appendix()))
-    assert "Reproducible test assets" in document
-    assert "gossipper sipp -h, binary 0.1.62" in document
-    assert "operator notebook, step 4.1" in document
-    assert "cross-compile for linux/amd64" in document
-
-
-def test_a_missing_appendix_is_stated_not_silently_omitted() -> None:
-    """A section that vanishes reads as one nobody needed."""
-    document = run_report.render_load_html(_payload())
-    assert "None recorded" in document
-    assert "cannot be reproduced by anybody else" in document
-
-
-def test_scenario_files_are_referenced_never_reproduced() -> None:
-    """They are somebody else's authored work, not an interface fact."""
-    document = run_report.render_load_html(_payload(appendix=_appendix()))
-    assert "referenced by name rather than reproduced" in document
-
-
 def test_the_appendix_travels_in_the_payload_not_only_the_html() -> None:
     """An automated consumer inherits the provenance with the commands."""
     payload = _payload(appendix=_appendix())
@@ -430,36 +320,10 @@ def test_the_verdict_is_derived_from_the_gates_it_ships_with() -> None:
     assert {g["status"] for g in payload["gates"]} == {"PASS", "FAIL"}
 
 
-def test_the_verdict_reaches_the_rendered_file() -> None:
-    """It used to be printed to a console nobody keeps."""
-    document = run_report.render_load_html(_gated("PASS", "UNKNOWN"))
-    assert 'class="verdict' in document
-    assert "UNKNOWN" in document
-
-
-def test_the_stamp_still_comes_before_the_verdict() -> None:
-    """The stamp's whole design is being the first thing a reader passes.
-
-    A verdict above it would be the first thing read on a file built from
-    fixtures, which is the one ordering that must never happen.
-    """
-    document = run_report.render_load_html(_gated("PASS"))
-    body = document[document.index("<body>") + len("<body>") :]
-    assert body.lstrip().startswith('<div class="stamp">')
-    assert body.index("stamp") < body.index('class="verdict')
-
-
-def test_the_verdict_sits_above_the_gate_table_it_summarises() -> None:
-    document = run_report.render_load_html(_gated("PASS", "FAIL"))
-    body = document[document.index("<body>") + len("<body>") :]
-    assert body.index('class="verdict') < body.index("Gates")
-
-
-def test_no_gates_recorded_renders_no_verdict_rather_than_a_pass() -> None:
+def test_no_gates_recorded_is_no_verdict_rather_than_a_pass() -> None:
     payload = _payload()
     assert payload["verdict"]["status"] is None
     assert payload["verdict"]["recorded"] is False
-    assert "NO VERDICT" in run_report.render_load_html(payload)
 
 
 def test_an_empty_gate_list_is_unknown_and_never_a_pass() -> None:
@@ -478,25 +342,109 @@ def test_a_waiver_shows_as_the_verdict_and_not_as_a_pass() -> None:
     assert payload["verdict"]["status"] == "WAIVED"
 
 
-def test_adding_the_verdict_kept_the_file_self_contained() -> None:
-    document = run_report.render_load_html(_gated("PASS", "FAIL")).lower()
+def test_the_file_is_self_contained_and_leaks_no_endpoint() -> None:
+    """Opened from disk, possibly offline: nothing may reach the network.
+
+    The appendix carries a wss:// URL on purpose; redaction must keep the host
+    (a reader reproducing the run needs it) and drop the scheme and path.
+    """
+    document = run_report.render_load_html(
+        _payload(appendix=_appendix(), gate_results=_gated("PASS", "FAIL")["gates"])
+    )
+    lowered = document.lower()
     for marker in (
-        "<script",
-        "<link",
-        "<img",
-        "<iframe",
-        "<object",
-        "<embed",
-        "<svg",
-        "@import",
-        "url(",
-        "src=",
-        "srcset",
-        "integrity=",
-        "crossorigin",
-        "//cdn",
-        "fonts.googleapis",
-        "http://",
-        "https://",
-    ):
-        assert marker not in document, f"the verdict block reaches for {marker!r}"
+        "<script", "<link", "<img", "<iframe", "<object", "<embed", "<svg",
+        "@import", "url(", "src=", "srcset", "integrity=", "crossorigin",
+        "//cdn", "fonts.googleapis", "http://", "https://", "wss://",
+    ):  # fmt: skip
+        assert marker not in lowered, f"the report reaches for {marker!r}"
+    # Redaction keeps the bare host as its own word, with no scheme or path.
+    assert re.search(r"(?<![\w./])media\.example\.com(?![\w/])", document)
+
+
+# --------------------------------------------------------------------------
+# Layout snapshots: section order and wording, one file per branch shape
+# --------------------------------------------------------------------------
+
+SNAPSHOTS = Path(__file__).parent / "snapshots"
+
+
+def _snapshot_cases() -> dict:
+    fail_gate = gates.node_cpu_gates(
+        [gates.NodeUtilisationReading(node="box-1", utilisation=0.95, samples=12)]
+    )
+    return {
+        # Stamp, NO VERDICT, no capacity block, no appendix.
+        "synthetic_no_gates": _payload(),
+        # Stamp above the verdict above the gates; appendix with citations.
+        "synthetic_unknown_with_appendix": _payload(
+            appendix=_appendix(), gate_results=_gated("PASS", "UNKNOWN")["gates"]
+        ),
+        # No stamp; a real gate row failing; results above the gate detail.
+        "measured_fail": _payload(
+            MEASURED_RUN, gate_results=[g.as_dict() for g in fail_gate]
+        ),
+        # A full capacity table with instance-type citation; a waived gate.
+        "measured_capacity_waived": _payload(
+            MEASURED_RUN,
+            capacity={
+                "calls_per_node": 150,
+                "reason": "highest concurrency sustained at or under 70% CPU",
+                "tiers": [
+                    {
+                        "target_concurrency": 500,
+                        "nodes_for_load": 4,
+                        "spare_nodes": 1,
+                        "nodes": 5,
+                    }
+                ],
+                "instance_type": {
+                    "name": "c7i.2xlarge",
+                    "role": "SIP",
+                    "citation": "sizing-runbook.md:115",
+                },
+            },
+            gate_results=[
+                {
+                    "gate": "establishment",
+                    "status": "WAIVED",
+                    "subject": "ramp-500",
+                    "detail": "fewer nodes were funded",
+                    "waiver_reason": "accepted in writing by the operator",
+                }
+            ],
+        ),
+        # Missing data everywhere, and a refused capacity figure whose
+        # lowercase reason is joined by a colon, never after a full stop.
+        "measured_thin_capacity_refused": run_report.build_load_payload(
+            run={"id": "r", "artifact_sha256": "a" * 64},
+            tests=[{"name": "t", "peak_concurrency": None}],
+            capacity={
+                "calls_per_node": None,
+                "reason": "no step carried both a peak concurrency",
+            },
+        ),
+    }
+
+
+def _normalise(payload: dict) -> str:
+    """Pin the clock and version, drop the constant CSS, one tag per line."""
+    payload = {
+        **payload,
+        "generated_at": "GENERATED_AT",
+        "generator": {**payload["generator"], "version": "VERSION"},
+    }
+    html = run_report.render_load_html(payload)
+    html = re.sub(r"<style>.*?</style>", "<style/>", html, flags=re.S)
+    return re.sub(r">(?=<)", ">\n", html)
+
+
+# Regenerate after an intended layout change: UPDATE_SNAPSHOTS=1 pytest <this file>
+@pytest.mark.parametrize("name", list(_snapshot_cases()))
+def test_the_rendered_layout_matches_its_snapshot(name: str) -> None:
+    actual = _normalise(_snapshot_cases()[name])
+    path = SNAPSHOTS / f"load_report_{name}.html"
+    if os.environ.get("UPDATE_SNAPSHOTS") == "1":
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(actual)
+    assert actual == path.read_text()
