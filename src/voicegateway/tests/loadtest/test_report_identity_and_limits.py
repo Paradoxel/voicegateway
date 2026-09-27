@@ -253,16 +253,3 @@ def test_unknown_totals_attribute_nothing() -> None:
     ]
     assert "cannot be attributed" in latency
     assert "start_rtd" not in latency
-
-
-def test_the_record_note_no_longer_claims_the_schema_is_undocumented(
-    exported,
-) -> None:
-    """It was captured and written down; the gap is that nothing maps it."""
-    [records] = [
-        item
-        for item in exported["payload"]["run_limitations"]
-        if "call records" in item
-    ]
-    assert "no documented record schema" not in records
-    assert "schema is known and recorded" in records

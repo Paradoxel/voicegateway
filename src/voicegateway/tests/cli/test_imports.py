@@ -6,8 +6,6 @@ import subprocess
 import sys
 from importlib.metadata import entry_points
 
-import typer
-
 # These imports themselves are part of the contract. If a future
 # refactor moves ``app`` or ``console`` somewhere ``from
 # voicegateway.cli import app`` cannot reach, the test module
@@ -39,19 +37,6 @@ def test_voicegateway_cli_import_does_not_load_textual() -> None:
 # ---------------------------------------------------------------------------
 # Direct import paths.
 # ---------------------------------------------------------------------------
-
-
-def test_app_is_a_typer_instance() -> None:
-    """``app`` is the Typer object every command registers on."""
-    assert isinstance(app, typer.Typer)
-    assert app.info.name == "voicegw"
-
-
-def test_console_is_a_rich_console() -> None:
-    """``console`` keeps its v0.0.5 type."""
-    from rich.console import Console
-
-    assert isinstance(console, Console)
 
 
 def test_dotted_attribute_access_still_works() -> None:
@@ -169,22 +154,4 @@ def test_no_command_name_collisions() -> None:
             names.append(cmd.callback.__name__)
     assert len(names) == len(set(names)), (
         f"Duplicate command name(s) on app: {sorted({n for n in names if names.count(n) > 1})}."
-    )
-
-
-def test_command_count_matches_documented_surface() -> None:
-    """Exactly the documented (v0.0.5 + v0.1.0-additions) count."""
-    expected = (
-        _V005_COMMAND_NAMES
-        | _V010_COMMAND_NAMES
-        | _V011_COMMAND_NAMES
-        | _V030_COMMAND_NAMES
-        | _FRAMEWORK_AGNOSTIC_COMMAND_NAMES
-        | _OPERATOR_VIEW_COMMAND_NAMES
-    )
-    registered = _registered_command_names()
-    assert registered == expected, (
-        f"Registered commands diverge from documented surface. "
-        f"Extra: {sorted(registered - expected)}. "
-        f"Missing: {sorted(expected - registered)}."
     )

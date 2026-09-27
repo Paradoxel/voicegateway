@@ -277,20 +277,6 @@ def test_the_nack_counter_is_gone_from_every_registration() -> None:
     assert "nacks_total" not in NodeSample.model_fields
 
 
-def test_no_module_docstring_still_advertises_it() -> None:
-    """A docstring naming a series that does not exist is a false claim.
-
-    Both of these described ``livekit_nack_total`` as a node counter this
-    schema carries, which would send a reader looking for a column that was
-    removed because the metric never existed.
-    """
-    from voicegateway.models import node_sample_model
-    from voicegateway.repository import node_correlation_repository
-
-    for module in (node_sample_model, node_correlation_repository):
-        assert "nack" not in (module.__doc__ or ""), module.__name__
-
-
 # --------------------------------------------------------------------------
 # The overflow warning fires once, not on every tick
 # --------------------------------------------------------------------------

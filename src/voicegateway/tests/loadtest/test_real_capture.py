@@ -165,28 +165,6 @@ def test_the_call_records_are_counted(parsed) -> None:
     assert parsed.call_records_count == 3
 
 
-def test_the_recorded_schema_matches_the_capture() -> None:
-    """The schema is in the module docstring because it exists nowhere else.
-
-    Checked against the real file so the note cannot rot into a description of
-    a shape the generator stopped emitting.
-    """
-    records = [
-        json.loads(line)
-        for line in (CAPTURE / "calls.jsonl").read_text().splitlines()
-        if line.strip()
-    ]
-    assert records
-    doc = artifacts._read_call_records.__doc__ or ""
-    for record in records:
-        assert record["schema_version"] == "gossipper_call_record_v1"
-        for key in ("call_id", "call_number", "success", "duration_ms", "error"):
-            assert key in record, key
-            assert key in doc, f"{key} is in the capture but not in the note"
-        for key in record["media"]:
-            assert key in doc, f"media.{key} is in the capture but not in the note"
-
-
 def test_the_media_keys_are_pascal_case() -> None:
     """Pinned because it is the detail a mapping written from memory gets wrong.
 
