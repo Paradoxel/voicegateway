@@ -1,8 +1,8 @@
 # Contributing to VoiceGateway
 
 Thank you for your interest in contributing. This file is the one-page
-quick reference. Detailed guides live in the documentation site at
-<https://docs.voicegateway.dev/contributing>.
+quick reference. Detailed guides live in
+[`contributing/`](contributing/).
 
 ## Code of Conduct
 
@@ -40,27 +40,31 @@ Before opening your PR, verify locally:
 
 | Topic | Doc |
 |---|---|
-| Local environment, virtualenv, pre-commit | [development-setup](https://docs.voicegateway.dev/contributing/development-setup) |
-| Running, writing, and debugging tests | [testing](https://docs.voicegateway.dev/contributing/testing) |
-| Code style, ruff, mypy, naming, public-API contract | [code-style](https://docs.voicegateway.dev/contributing/code-style) |
-| Adding a new provider | [adding-a-provider](https://docs.voicegateway.dev/contributing/adding-a-provider) |
-| Refreshing STT and TTS pricing catalogs | [refreshing-pricing](https://docs.voicegateway.dev/contributing/refreshing-pricing) |
+| Local environment, virtualenv, pre-commit | [development-setup](contributing/development-setup.md) |
+| Running, writing, and debugging tests | [testing](contributing/testing.md) |
+| Code style, ruff, mypy, naming, public-API contract | [code-style](contributing/code-style.md) |
+| Adding a new provider | [adding-a-provider](contributing/adding-a-provider.md) |
+| Refreshing STT and TTS pricing catalogs | [refreshing-pricing](contributing/refreshing-pricing.md) |
 
 ## Documentation
 
-The Mintlify docs site published at <https://docs.voicegateway.dev> lives in
-**this** repository under `docs/`: config in `docs/docs.json`, pages as `.md`,
-brand assets under `docs/assets/`. Mintlify deploys `docs/` from the default
-branch, so docs version with the code. Change the docs in the same PR as any
-behaviour or API change.
+The docs site at <https://docs.voicegateway.dev> is a [Fumadocs](https://fumadocs.dev)
+app in `docs/`, statically exported and served from Cloudflare
+(`docs/wrangler.jsonc`). Pages are MDX in `docs/content/docs/`, ordered by
+`meta.json`; brand assets live in `docs/public/assets/`. Docs version with the
+code: change them in the same PR as any behaviour or API change.
 
-Two things to know before editing:
+The site is deliberately small while the project is early. Add a page only when
+an existing one cannot hold the answer.
 
-- `docs/_check_docs.py` is a real gate, enforced in CI by
-  `.github/workflows/docs.yml`. It fails any page not wired into the `docs.json`
-  nav, so adding a file is never enough on its own. It skips `superpowers/`,
-  `snippets/`, and any dot- or underscore-prefixed path.
-- Run it locally with `python3 docs/_check_docs.py`, the same command CI uses.
+```bash
+cd docs && npm ci
+npm run dev     # http://localhost:3000/docs
+npm run build   # the static export in docs/out, the same command CI runs
+```
+
+`.github/workflows/docs.yml` builds the site and fails on any em dash in the
+pages; the voice is short sentences, colons and commas.
 
 Only the Next.js landing page at <https://voicegateway.dev> lives elsewhere, in
 [`mahimailabs/voicegateway-web`](https://github.com/mahimailabs/voicegateway-web).
@@ -98,8 +102,10 @@ src/
 
 alembic/               # migration environment and versions. Root, not under
 alembic.ini            # src/: pyproject force-includes it into the wheel.
-docs/                  # the Mintlify docs site (docs.voicegateway.dev),
-                       # config in docs.json, brand assets in docs/assets/
+docs/                  # the Fumadocs site (docs.voicegateway.dev): MDX pages in
+                       # content/docs/, brand assets in public/assets/
+contributing/          # contributor guides: setup, tests, style, providers
+specs/                 # internal design specs, not published
 examples/              # runnable files that docs/examples/*.md link to by
                        # blob URL; moving them breaks published links
 deploy/
@@ -126,6 +132,6 @@ pyproject.toml
 
 ## First time?
 
-Start with [docs/contributing/development-setup.md](docs/contributing/development-setup.md)
+Start with [contributing/development-setup.md](contributing/development-setup.md)
 to get your environment ready, then look for issues tagged
 `good first issue` on GitHub.

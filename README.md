@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/assets/banner.gif" alt="VoiceGateway" width="100%" />
+<img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/banner.gif" alt="VoiceGateway" width="100%" />
 
 <p>
-  <a href="https://docs.voicegateway.dev"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/assets/badges/docs.svg" height="30" alt="Docs"/></a>
-  <a href="https://pypi.org/project/voicegateway"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/assets/badges/pypi.svg" height="30" alt="PyPI"/></a>
-  <img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/assets/badges/python.svg" height="30" alt="Python 3.11+"/>
-  <a href="https://docs.livekit.io/agents"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/assets/badges/livekit.svg" height="30" alt="LiveKit Agents 1.x"/></a>
-  <a href="LICENSE"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/assets/badges/license.svg" height="30" alt="MIT License"/></a>
+  <a href="https://docs.voicegateway.dev"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/badges/docs.svg" height="30" alt="Docs"/></a>
+  <a href="https://pypi.org/project/voicegateway"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/badges/pypi.svg" height="30" alt="PyPI"/></a>
+  <img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/badges/python.svg" height="30" alt="Python 3.11+"/>
+  <a href="https://docs.livekit.io/agents"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/badges/livekit.svg" height="30" alt="LiveKit Agents 1.x"/></a>
+  <a href="LICENSE"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/badges/license.svg" height="30" alt="MIT License"/></a>
 </p>
 
 <p>
@@ -57,9 +57,9 @@ pip install "voicegateway[dashboard]"
 voicegw init && voicegw serve
 ```
 
-Add the `voicegateway.attach(session)` line above to your agent and every call is tracked. Provider plugins install with your framework: `pip install "voicegateway[livekit,deepgram,openai,cartesia]"` or `"voicegateway[pipecat]"`.
+Add the `voicegateway.attach(session)` line above to your agent and every call is tracked. VoiceGateway bundles no provider plugins: install `"voicegateway[livekit]"` or `"voicegateway[pipecat]"` next to the plugins your agent already uses (`livekit-plugins-deepgram`, `pipecat-ai[deepgram]`, and so on).
 
-Python 3.11+. The full extras matrix, the zero-install [uvx](https://uvx.sh) path, and the OS daemon installer are in the [get-started docs](https://docs.voicegateway.dev/get-started).
+Python 3.11+. The [quickstart](https://docs.voicegateway.dev/docs/quickstart) walks through a first call end to end.
 
 ## What you get
 
@@ -76,14 +76,14 @@ Voice AI vendors hide three numbers: whether it works, what it costs, and how to
 | **Multi-tenant attribution**   | Per-tenant cost, scoped API keys per team, agency-ready                                     |
 | **Fleet collector**            | One-line installer. N agents push to one collector. Slice by agent, project, tenant         |
 
-Building a text-only LLM app with no voice? [LiteLLM](https://docs.litellm.ai/) is the better fit. See the [decision table](https://docs.voicegateway.dev/guide/what-is-voicegateway#when-something-else-is-the-better-fit). Release history: [CHANGELOG.md](CHANGELOG.md).
+Building a text-only LLM app with no voice? [LiteLLM](https://docs.litellm.ai/) is the better fit. See the [decision table](https://docs.voicegateway.dev/docs#when-something-else-fits-better). Release history: [CHANGELOG.md](CHANGELOG.md).
 
 ## The dashboard
 
 Self-hosted at `http://localhost:8080`. Bundled, no SaaS account, no data leaves your stack.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/assets/dashboard.png" alt="VoiceGateway dashboard: cost by provider and model" width="100%" />
+  <img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/dashboard.png" alt="VoiceGateway dashboard: cost by provider and model" width="100%" />
   <br/>
   <sub>Example numbers. Click through the real thing, no login, at <a href="https://voicegateway.dev/demo">voicegateway.dev/demo</a>.</sub>
 </div>
@@ -123,7 +123,7 @@ export VOICEGW_API_KEY="<your-ingest-key>"
 export VOICEGW_PROJECT="my-agent"
 ```
 
-`attach()` reads those and batches every call to the collector instead of local SQLite. SQLite and Postgres backends, Docker Compose, and HTTPS via Caddy: [deployment docs](https://docs.voicegateway.dev/deployment/vps).
+`attach()` reads those and batches every call to the collector instead of local SQLite. SQLite and Postgres backends, Docker Compose, and HTTPS via Caddy: [self-hosting docs](https://docs.voicegateway.dev/docs/self-hosting#one-collector-for-every-agent).
 
 ## Coding agents (MCP)
 
@@ -134,7 +134,7 @@ pipx inject voicegateway "voicegateway[dashboard]"
 claude mcp add voicegateway --command "voicegw mcp --transport stdio"
 ```
 
-Destructive ops (`delete_*`) require an explicit `confirm=True` after a preview. Remote HTTP/SSE transport and the full tool list: [MCP reference](https://docs.voicegateway.dev/mcp/).
+Destructive ops (`delete_*`) require an explicit `confirm=True` after a preview. Remote HTTP/SSE transport and the full tool list: [MCP docs](https://docs.voicegateway.dev/docs/self-hosting#coding-agents-mcp).
 
 ## Providers
 
@@ -146,7 +146,7 @@ Any provider [voice-prices](https://github.com/mahimailabs/voice-prices) covers.
 | **LLM**  | OpenAI, Anthropic, Groq                       | Ollama (any compatible) |
 | **TTS**  | Cartesia, ElevenLabs, Deepgram Aura-2, OpenAI | Kokoro, Piper           |
 
-A price it does not recognize records at zero and flags for a rate-card entry, so nothing is silently dropped. Per-model IDs: [configuration/providers](https://docs.voicegateway.dev/configuration/providers).
+A price it does not recognize records at zero and flags for a rate-card entry, so nothing is silently dropped. How every cost names its source: [costs and reconciliation](https://docs.voicegateway.dev/docs/costs).
 
 ## Contributing
 

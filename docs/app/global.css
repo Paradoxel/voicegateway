@@ -1,0 +1,101 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+/*
+ * The mahimai.ca palette, shared with prices.mahimai.ca: signal on black.
+ * One accent, lavender, and it is a signal only: links, the active nav item,
+ * focus. Dark is the default; light deepens the accent to keep 4.5:1.
+ */
+@theme inline {
+  --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+:root {
+  --color-fd-background: #fcfcfc;
+  --color-fd-foreground: #0a0a0a;
+  --color-fd-muted: #f2f2f3;
+  --color-fd-muted-foreground: #55555c;
+  --color-fd-popover: #fcfcfc;
+  --color-fd-popover-foreground: #0a0a0a;
+  --color-fd-card: #f2f2f3;
+  --color-fd-card-foreground: #0a0a0a;
+  --color-fd-border: #e3e3e6;
+  --color-fd-primary: #6f3fb0;
+  --color-fd-primary-foreground: #fcfcfc;
+  --color-fd-secondary: #f2f2f3;
+  --color-fd-secondary-foreground: #0a0a0a;
+  --color-fd-accent: #e9e3f3;
+  --color-fd-accent-foreground: #0a0a0a;
+  --color-fd-ring: #6f3fb0;
+}
+
+.dark {
+  --color-fd-background: #0a0a0a;
+  --color-fd-foreground: #fafafa;
+  --color-fd-muted: #171717;
+  --color-fd-muted-foreground: #a3a3a3;
+  --color-fd-popover: #111111;
+  --color-fd-popover-foreground: #fafafa;
+  --color-fd-card: #171717;
+  --color-fd-card-foreground: #fafafa;
+  --color-fd-border: #262626;
+  --color-fd-primary: #cba6f7;
+  --color-fd-primary-foreground: #0a0a0a;
+  --color-fd-secondary: #171717;
+  --color-fd-secondary-foreground: #fafafa;
+  --color-fd-accent: #1f1a28;
+  --color-fd-accent-foreground: #fafafa;
+  --color-fd-ring: #cba6f7;
+}
+
+.dark #nd-sidebar {
+  --color-fd-muted: #171717;
+  --color-fd-secondary: #1c1c1c;
+  --color-fd-muted-foreground: #a3a3a3;
+}
+
+html {
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--color-fd-border) transparent;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-fd-primary) 30%, transparent);
+  color: var(--color-fd-foreground);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-fd-ring);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.prose a {
+  text-decoration-color: color-mix(in srgb, var(--color-fd-primary) 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.prose a:hover {
+  text-decoration-color: var(--color-fd-primary);
+}
+
+/* Numbers are measurements here: every column lines up. */
+code,
+pre,
+table {
+  font-variant-numeric: tabular-nums;
+}

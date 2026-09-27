@@ -71,7 +71,7 @@ parse_args() {
 }
 
 detect_os() {
-    [ "$(uname -s)" = "Linux" ] || die "collector.sh supports Linux servers only. See https://docs.voicegateway.dev/deployment"
+    [ "$(uname -s)" = "Linux" ] || die "collector.sh supports Linux servers only. See https://docs.voicegateway.dev/docs/self-hosting"
 }
 
 resolve_version() {

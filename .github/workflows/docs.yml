@@ -1,11 +1,8 @@
 name: Docs
 
-# docs/_check_docs.py is the docs gate (every page under docs/ must be in the
-# Mintlify nav and carry title + description frontmatter; superpowers/ and
-# snippets/ are excluded). Nothing ran it in CI, so a docs-only PR got no gate
-# at all: ci.yml only triggers on src/voicegateway/**, src/dashboard/api/** and
-# pyproject.toml. A PR that adds a page without registering it in docs.json, or
-# drops the frontmatter, would have merged clean and broken the docs build.
+# The docs site in docs/ is a Fumadocs static export. ci.yml only triggers on
+# src/voicegateway/** and friends, so without this a docs-only PR had no gate:
+# a page with broken MDX or a bad link would merge clean and fail the deploy.
 
 on:
   pull_request:
@@ -14,15 +11,21 @@ on:
       - '.github/workflows/docs.yml'
 
 jobs:
-  validate:
-    name: validate
+  build:
+    name: build
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: '3.12'
-      # Stdlib only by design, so there is nothing to install.
-      - name: Validate docs
-        run: python3 docs/_check_docs.py
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      # House voice: colons and commas, never an em dash.
+      - name: No em dashes
+        run: '! grep -rn "—" content/'
+      - run: npm ci
+      - run: npm run build
