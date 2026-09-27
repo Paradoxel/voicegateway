@@ -308,6 +308,9 @@ async def test_read_shape(seeded_client, reader, kwargs, sub, keys):
         ("", None, 0.007),  # default tenant is the empty string
         ("acme", float(_DAY0 + 1), 0.01),  # until= keeps only req-acme-1
     ],
+    # _DAY0 comes from the clock, so a value-derived id would differ between
+    # pytest-xdist workers collecting a second apart.
+    ids=["acme", "beta", "default-tenant", "acme-until"],
 )
 async def test_cost_summary_total(seeded_client, tenant, until, expected):
     result = await rr.get_cost_summary(
