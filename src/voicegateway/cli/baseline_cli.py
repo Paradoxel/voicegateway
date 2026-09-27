@@ -59,7 +59,7 @@ async def _p95_ttfb(
     if project:
         where += " AND project = :project"
         params["project"] = project
-    async with storage._conn.session() as db:
+    async with storage.session() as db:
         result = await db.execute(
             _text(f"SELECT ttfb_ms FROM requests {where}"), params
         )
@@ -83,7 +83,7 @@ async def _collect(storage: Any, period: str, project: str | None) -> dict[str, 
 
     metrics: dict[str, dict[str, Any]] = {}
 
-    async with storage._conn.session() as db:
+    async with storage.session() as db:
         speed = await turns.aggregate_response_speed(db)
     # The count comes from the aggregate itself rather than a second query.
     # Two statements counting the same rows are two things that can disagree,

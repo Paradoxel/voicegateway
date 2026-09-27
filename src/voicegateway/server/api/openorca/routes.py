@@ -109,8 +109,7 @@ async def _current_snapshot(gateway: Gateway, tenant_id: str | None) -> dict[str
     generated_at = _now_iso()
     if gateway.storage is None:
         return build_snapshot([], generated_at=generated_at)
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         rows = await workers_repository.read_roster(
             db,
             tenant_id=tenant_id,

@@ -63,8 +63,7 @@ async def get_metrics_summary(
     since_iso = since.isoformat()
     until_iso = until.isoformat()
 
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         where_clauses = ["started_at >= :since", "started_at < :until"]
         params: dict[str, Any] = {"since": since_iso, "until": until_iso}
         if project:

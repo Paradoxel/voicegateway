@@ -92,8 +92,7 @@ class AgentObservationsWorker(AsyncWorker):
                 _DEFAULT_WINDOW_MINUTES,
             )
             window_minutes = _DEFAULT_WINDOW_MINUTES
-        await self._storage._ensure_initialized()
-        async with self._storage._conn.session() as db:
+        async with self._storage.session() as db:
             inserted = await agent_observations.roll_up(
                 db, window_minutes=window_minutes
             )

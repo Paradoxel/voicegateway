@@ -263,8 +263,7 @@ async def _fleet_section(gateway: Gateway, now: float) -> dict[str, Any]:
     if storage is None:
         return {"ok": True, "error": None, "workers": [], "counts": _fleet_counts([])}
     try:
-        await storage._ensure_initialized()
-        async with storage._conn.session() as db:
+        async with storage.session() as db:
             roster = await workers_repository.read_roster(
                 db, tenant_id=None, now=now, ttl_seconds=DEFAULT_TTL_SECONDS
             )

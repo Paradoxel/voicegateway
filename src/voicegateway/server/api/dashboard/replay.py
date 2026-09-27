@@ -84,8 +84,7 @@ async def get_session_replay(
     if gateway.storage is None:
         raise HTTPException(status_code=503, detail="Storage not configured")
     await require_visible_session(gateway.storage, session_id, principal)
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         events = await replay.read_full_replay(db, session_id)
     return {
         "session_id": session_id,
@@ -119,8 +118,7 @@ async def delete_session_replay(
     """
     if gateway.storage is None:
         raise HTTPException(status_code=503, detail="Storage not configured")
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         deleted = await replay.delete_replay(db, session_id)
     return {"session_id": session_id, "deleted_rows": deleted}
 
@@ -162,8 +160,7 @@ async def get_replay_storage(
             conditions.append("tenant_id = :tenant")
             params["tenant"] = tenant
     where = " AND ".join(conditions)
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         result = await db.execute(
             text(
                 "SELECT project, COALESCE(SUM(replay_size_bytes), 0) "

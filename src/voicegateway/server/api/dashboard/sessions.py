@@ -190,8 +190,7 @@ async def get_session_turns(
     if gateway.storage is None:
         raise HTTPException(status_code=503, detail="Storage not configured")
     await require_visible_session(gateway.storage, session_id, principal)
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         rows = await turns.list_turns_by_session(db, session_id)
     return {
         "session_id": session_id,
@@ -239,8 +238,7 @@ async def get_session_dead_air(
     if gateway.storage is None:
         raise HTTPException(status_code=503, detail="Storage not configured")
     await require_visible_session(gateway.storage, session_id, principal)
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         events = await dead_air.list_events_by_session(db, session_id)
     return {
         "session_id": session_id,

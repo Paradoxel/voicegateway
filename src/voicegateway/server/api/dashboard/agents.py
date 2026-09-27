@@ -289,7 +289,7 @@ async def _cache_probe_result(
     if gateway.storage is None:  # nothing to cache into; the endpoint gated on this
         return
     try:
-        async with gateway.storage._conn.session() as db:
+        async with gateway.storage.session() as db:
             await agent_probe_result_repository.upsert_probe_result(
                 db, agent_id, result, time.time()
             )
@@ -416,8 +416,7 @@ async def list_agents_endpoint(
     """
     if gateway.storage is None:
         return {"agents": [], "unattributed": dict(_EMPTY_UNATTRIBUTED)}
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         rows = await agent_obs.read_agents(db, limit=limit, query=q)
         unattributed = await agent_obs.read_unattributed(db)
         # Live worker roster: per-agent memory headroom + idle/busy presence, and
@@ -576,8 +575,7 @@ async def probe_agent_endpoint(
     except CredsError:
         raise HTTPException(status_code=400, detail="LiveKit not configured") from None
 
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         names = await request_log_repository.read_last_seen_dispatch_name(
             db, [agent_id]
         )
@@ -685,8 +683,7 @@ async def get_agent_endpoint(
     """Return aggregates for a single agent. 404 when unseen."""
     if gateway.storage is None:
         raise HTTPException(status_code=404, detail=f"Agent {agent_id!r} not found")
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         row = await agents.get_agent(db, agent_id)
         if row is None:
             raise HTTPException(status_code=404, detail=f"Agent {agent_id!r} not found")

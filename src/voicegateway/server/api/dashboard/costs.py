@@ -168,7 +168,7 @@ async def get_turn_response_speed(
     # recorded, which reads as a healthy sample count rather than as an error.
     since_ms = int(since * 1000)
     until_ms = int(until * 1000) if until is not None else None
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         return await turns_repo.aggregate_response_speed(
             db,
             since_ms=since_ms,

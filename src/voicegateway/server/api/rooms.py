@@ -261,9 +261,8 @@ async def get_room_latency(
         None,
     )
 
-    await gateway.storage._ensure_initialized()
     turn_rows: list[Any] = []
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         for sid in session_ids:
             turn_rows.extend(await turns.list_turns_by_session(db, sid))
     # Room-wide chronological order, fully determined. ``turn_index`` is

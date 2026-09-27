@@ -78,6 +78,14 @@ class StorageService:
                 _logger.warning("%s Writing anyway; the schema is a superset.", exc)
             self._initialized = True
 
+    async def initialize(self) -> None:
+        """Run migrations now rather than on the first session.
+
+        For callers that must not pay the migration cost at a bad moment, such
+        as ``attach()`` warming the store before the dead-air watcher can fire.
+        """
+        await self._ensure_initialized()
+
     @asynccontextmanager
     async def session(self) -> AsyncGenerator[AsyncSession, None]:
         """The one public way to a database session.

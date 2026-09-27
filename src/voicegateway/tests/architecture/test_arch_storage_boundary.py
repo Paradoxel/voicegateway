@@ -7,17 +7,15 @@ database, which is exactly where a tenant guard has to live: VG-SEC-001 was
 one writer preferring a payload tenant because no single place decided
 tenancy for every write.
 
-The first test is red until Task 13 retires the last reach-through, so it
-carries a strict xfail until then. That marker is the acceptance test for the
-whole seam: when it XPASSes, the boundary exists.
+The last reach-through is retired, so the first test now enforces the
+boundary: production code gets a session from ``StorageService.session()``
+and warms the store with ``StorageService.initialize()``.
 """
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
-
-import pytest
 
 _SRC = Path(__file__).resolve().parents[2]
 #: The one module allowed to touch the connection it owns.
@@ -30,10 +28,6 @@ def _production_files() -> list[Path]:
     return [p for p in sorted(_SRC.rglob("*.py")) if "tests" not in p.parts]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="closes in Task 13, when the last reach-through is retired",
-)
 def test_no_module_outside_storage_service_touches_internals():
     offenders = []
     for path in _production_files():

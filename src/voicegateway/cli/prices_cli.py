@@ -284,8 +284,7 @@ def gaps_cmd(
     since_ts = _parse_iso_date_arg(since, end_of_day=False) if since else None
 
     async def _read() -> list[dict[str, Any]]:
-        await storage._ensure_initialized()
-        async with storage._conn.session() as db:
+        async with storage.session() as db:
             return await request_log_repository.read_pricing_gaps(
                 db, tenant=tenant, project=project, since_ts=since_ts
             )

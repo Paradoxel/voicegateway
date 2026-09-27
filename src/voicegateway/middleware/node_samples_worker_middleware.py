@@ -1060,8 +1060,7 @@ class NodeSamplesWorker(AsyncWorker):
                 *(self._scrape(client, target, at_ms) for target in targets)
             )
 
-        await self._storage._ensure_initialized()
-        async with self._storage._conn.session() as db:
+        async with self._storage.session() as db:
             written = await node_samples.insert_samples(db, samples)
             # Unconditional, every tick: this is what makes the table bounded
             # regardless of whether per-project retention is enabled at all.

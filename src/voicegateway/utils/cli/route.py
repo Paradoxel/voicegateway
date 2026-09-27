@@ -11,8 +11,7 @@ from voicegateway.services import routing_service as router
 
 
 async def _show_async(storage: Any, project_id: str) -> list[Any]:
-    await storage._ensure_initialized()
-    async with storage._conn.session() as db:
+    async with storage.session() as db:
         return await latency_observations.get_for_project(db, project_id)
 
 
@@ -23,8 +22,7 @@ async def _simulate_async(
     project_config: Any,
     overrides: dict[str, str],
 ) -> Any:
-    await storage._ensure_initialized()
-    async with storage._conn.session() as db:
+    async with storage.session() as db:
         return await router.route_session(
             db,
             project_id=project_id,
