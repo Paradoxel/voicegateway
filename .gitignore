@@ -385,6 +385,8 @@ vite.config.ts.timestamp-*
 
 # Docs app build output and deps (docs/.gitignore covers the rest)
 docs/node_modules/
+# The Python template's `lib/` rule above would swallow the docs app's source.
+!docs/lib/
 
 # Local Alembic sandbox DB created by 'alembic check' against the
 # fallback alembic.ini URL. Real DBs live under ~/.config/voicegateway/.
