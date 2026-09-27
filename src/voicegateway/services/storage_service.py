@@ -96,6 +96,15 @@ class StorageService:
         async with self._conn.session() as session:
             yield session
 
+    @property
+    def database(self) -> Database:
+        """The one engine this facade owns, shared with the DI container.
+
+        Without this the server ran two engines on one file: this facade's and
+        the one ``Container.database`` built for itself from the same config.
+        """
+        return self._conn
+
     async def aclose(self) -> None:
         """Dispose the underlying engine."""
         await self._conn.dispose()

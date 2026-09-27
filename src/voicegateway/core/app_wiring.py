@@ -50,6 +50,10 @@ def attach_layered_stack(app: FastAPI, gateway: Gateway) -> None:
     """Wire the SQLAlchemy + dependency-injector layer onto the FastAPI app."""
     container = Container()
     container.config.override(providers.Object(gateway.config))
+    if gateway.storage is not None:
+        # One engine per process: reuse the storage facade's instead of letting
+        # the container build a second one on the same database.
+        container.database.override(providers.Object(gateway.storage.database))
     container.wire(modules=container.wiring_config.modules)
     app.state.container = container
 
