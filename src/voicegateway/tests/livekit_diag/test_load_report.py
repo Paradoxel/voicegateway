@@ -358,7 +358,8 @@ def test_the_file_is_self_contained_and_leaks_no_endpoint() -> None:
         "//cdn", "fonts.googleapis", "http://", "https://", "wss://",
     ):  # fmt: skip
         assert marker not in lowered, f"the report reaches for {marker!r}"
-    assert "media.example.com" in document
+    # Redaction keeps the bare host as its own word, with no scheme or path.
+    assert re.search(r"(?<![\w./])media\.example\.com(?![\w/])", document)
 
 
 # --------------------------------------------------------------------------
