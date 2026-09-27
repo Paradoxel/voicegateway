@@ -681,7 +681,7 @@ class StorageService:
         from voicegateway.repository import calls_repository
 
         await self._ensure_initialized()
-        async with self._conn.session() as db:
+        async with self._conn.write_session() as db:
             return await calls_repository.upsert_call(
                 db,
                 origin=origin,
@@ -730,7 +730,7 @@ class StorageService:
         from voicegateway.repository import calls_repository
 
         await self._ensure_initialized()
-        async with self._conn.session() as db:
+        async with self._conn.write_session() as db:
             await calls_repository.upsert_call_leg(
                 db,
                 call_id=call_id,
