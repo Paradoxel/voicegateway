@@ -221,7 +221,7 @@ def test_write_scope_no_longer_spans_ingest(matrix):
     write_rows = [r for r in matrix.routes if r.auth is RouteAuth.SCOPE_WRITE]
     assert len(write_rows) == 12, (
         f"{len(write_rows)} routes are gated by the write scope, but "
-        "docs/architecture/observability-security.md says 12. Update both "
+        "specs/observability-security.md says 12. Update both "
         "together."
     )
     ingest = {r.path for r in write_rows if r.path.startswith("/v1/ingest")}

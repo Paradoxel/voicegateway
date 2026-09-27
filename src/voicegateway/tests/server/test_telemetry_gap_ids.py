@@ -38,7 +38,7 @@ from voicegateway.schemas.telemetry.security_schema import (
 from voicegateway.tests.fixtures.security._loader import load_all
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_DOCS_PAGE = _REPO_ROOT / "docs" / "architecture" / "observability-security.md"
+_DOCS_PAGE = _REPO_ROOT / "specs" / "observability-security.md"
 _GAP_IN_TEXT = re.compile(r"VG-SEC-\d{3}")
 
 

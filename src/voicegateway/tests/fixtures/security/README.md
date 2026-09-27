@@ -10,7 +10,7 @@ The roadmap named `fixtures/telemetry/` for this work, but Codex's trace
 contract claims that path in the same wave. Two agents writing different
 schemas into one directory in one wave is a collision with no upside, so the
 security cases live here instead. Codex has been notified; see the Codex
-handoff section of `docs/architecture/observability-security.md`.
+handoff section of `specs/observability-security.md`.
 
 There is no `__init__.py`, matching `fixtures/streaming/`. The modules import
 fine as a namespace package.
