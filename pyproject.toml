@@ -23,6 +23,12 @@ dependencies = [
     "rich>=13.0.0",
     "httpx>=0.27.0",
     "pydantic>=2.0",
+    # Core, not [dashboard]: the CLI must be able to build the same container
+    # the server does on a base install. 4.49.1 fixes sync resource shutdown
+    # with async deps; below 5 because a major release may change the wiring
+    # semantics the container relies on. The agent side (attach, guard, sinks)
+    # still never imports it; tests/architecture pins that.
+    "dependency-injector>=4.49.1,<5",
     "cryptography>=43.0",
     # Prices are the product here, so the floor moves forward rather than the
     # ceiling holding still. The old `<0.2` cap silently pinned installs to the
@@ -73,9 +79,6 @@ dashboard = [
     "fastapi>=0.115.0",
     "uvicorn>=0.32.0",
     "python-multipart>=0.0.9",
-    # 4.49.1 fixes sync resource shutdown with async deps; below 5 because a
-    # major release may change wiring semantics the server container relies on.
-    "dependency-injector>=4.49.1,<5",
     "pydantic-settings>=2.0",
     "asgi-correlation-id>=4.3",
     "loguru>=0.7",

@@ -3855,6 +3855,7 @@ dependencies = [
     { name = "bcrypt" },
     { name = "clickhouse-connect" },
     { name = "cryptography" },
+    { name = "dependency-injector" },
     { name = "httpx" },
     { name = "pillow" },
     { name = "psutil" },
@@ -3871,7 +3872,6 @@ dependencies = [
 collector = [
     { name = "asgi-correlation-id" },
     { name = "asyncpg" },
-    { name = "dependency-injector" },
     { name = "duckdb" },
     { name = "fastapi" },
     { name = "loguru" },
@@ -3882,7 +3882,6 @@ collector = [
 ]
 dashboard = [
     { name = "asgi-correlation-id" },
-    { name = "dependency-injector" },
     { name = "fastapi" },
     { name = "loguru" },
     { name = "mcp" },
@@ -3893,7 +3892,6 @@ dashboard = [
 dev = [
     { name = "asgi-correlation-id" },
     { name = "chdb" },
-    { name = "dependency-injector" },
     { name = "duckdb" },
     { name = "fastapi" },
     { name = "livekit" },
@@ -3933,9 +3931,7 @@ requires-dist = [
     { name = "chdb", marker = "extra == 'dev'", specifier = ">=3.0" },
     { name = "clickhouse-connect", specifier = ">=0.9,<1.0" },
     { name = "cryptography", specifier = ">=43.0" },
-    { name = "dependency-injector", marker = "extra == 'collector'", specifier = ">=4.49.1,<5" },
-    { name = "dependency-injector", marker = "extra == 'dashboard'", specifier = ">=4.49.1,<5" },
-    { name = "dependency-injector", marker = "extra == 'dev'", specifier = ">=4.49.1,<5" },
+    { name = "dependency-injector", specifier = ">=4.49.1,<5" },
     { name = "duckdb", marker = "extra == 'collector'", specifier = ">=1.0,<2.0" },
     { name = "duckdb", marker = "extra == 'dev'", specifier = ">=1.0,<2.0" },
     { name = "fastapi", marker = "extra == 'collector'", specifier = ">=0.115.0" },
