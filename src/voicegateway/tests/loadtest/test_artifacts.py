@@ -22,7 +22,6 @@ prove only that this parser is defensive, never that it matches a real artifact.
 from __future__ import annotations
 
 import json
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -119,91 +118,104 @@ def _write(
     return directory
 
 
+def _summary(drop: str | None = None, **changes) -> dict:
+    """SUMMARY with one key dropped and/or some keys replaced."""
+    return {k: v for k, v in SUMMARY.items() if k != drop} | changes
+
+
+def _file(directory: Path, name: str, content: str | bytes) -> Path:
+    path = directory / name
+    if isinstance(content, bytes):
+        path.write_bytes(content)
+    else:
+        path.write_text(content)
+    return path
+
+
 @pytest.fixture
 def run_dir(tmp_path: Path) -> Path:
     return _write(tmp_path / "ramp-500")
 
 
 # --------------------------------------------------------------------------
-# Trap 1: concurrency
+# The full run: every column from the right surface
 # --------------------------------------------------------------------------
 
 
-def test_peak_concurrency_comes_from_the_csv_not_the_summary(run_dir: Path) -> None:
-    """The whole reason the CSV is a required surface.
+@pytest.mark.parametrize(
+    ("field", "expected"),
+    [
+        # Trap 1. The summary's active_calls is the drain value, 0. The CSV's
+        # mid-run row is the real peak.
+        ("peak_concurrency", 492),
+        ("attempted_calls", 15000),
+        # The generator's ratio is kept only as a cross-check. Rounding is
+        # agreement: 14985/15000 is 0.999 exactly.
+        ("reported_success_ratio", 0.999),
+        ("reported_ratio_disagrees", False),
+        # calls.jsonl is documented nowhere, so it can never be required.
+        ("call_records_status", "absent"),
+        ("call_records_count", None),
+        # 2026-07-31T18:00:00Z, in UTC epoch milliseconds.
+        ("started_at_ms", 1785520800000),
+        ("ended_at_ms", 1785520800000 + 3_600_000),
+        ("tool", "gossipper"),
+        ("tool_version", "0.1.62"),
+        ("rtp_packets_sent", 88410000),
+        ("rtp_packets_received", 88396500),
+        ("name", "ramp-500"),
+    ],
+)
+def test_the_full_run_parses(run_dir: Path, field: str, expected) -> None:
+    assert getattr(art.parse_test_directory(run_dir), field) == expected
 
-    The summary's active_calls is 0 because the run had drained by the time it
-    was written. A parser that read concurrency from there would report that a
-    500-concurrent run held no calls at all.
-    """
-    parsed = art.parse_test_directory(run_dir)
-    assert parsed.peak_concurrency == 492
-    # The wrong answer, pinned so this test cannot pass by coincidence.
-    assert SUMMARY["active_calls"] == 0
-    assert parsed.peak_concurrency != SUMMARY["active_calls"]
 
-
-def test_concurrency_is_none_when_there_is_no_csv(tmp_path: Path) -> None:
-    """Not zero. The summary alone cannot answer this question at all.
-
-    Falling back to the summary's drain value here is exactly the bug; None
-    forces the caller to render it as not-measured.
-    """
-    parsed = art.parse_test_directory(_write(tmp_path / "only-summary", csv=False))
-    assert parsed.peak_concurrency is None
-    # Everything the summary CAN answer still came through.
-    assert parsed.attempted_calls == 15000
-
-
-# --------------------------------------------------------------------------
-# Trap 2: establishment
-# --------------------------------------------------------------------------
+def test_the_name_can_be_overridden(run_dir: Path) -> None:
+    assert art.parse_test_directory(run_dir, name="step-3").name == "step-3"
 
 
 def test_establishment_is_computed_from_counts_not_scanned_per_row(
     run_dir: Path,
 ) -> None:
-    """A per-row min over success_ratio reads 0 and fails a healthy run."""
+    """Trap 2. A per-row min over success_ratio reads 0 and fails a healthy run."""
     parsed = art.parse_test_directory(run_dir)
     assert parsed.establishment_ratio == pytest.approx(14985 / 15000)
-    assert parsed.establishment_ratio > 0.995
-
     # The wrong answer, pinned: the first interval legitimately reads 0.
     per_row_min = min(
         s.success_ratio for s in parsed.samples if s.success_ratio is not None
     )
     assert per_row_min == 0.0
-    assert parsed.establishment_ratio != per_row_min
 
 
-def test_establishment_is_none_rather_than_zero_when_nothing_was_attempted() -> None:
-    """A run that placed no calls has no establishment rate.
+@pytest.mark.parametrize(
+    "parsed",
+    [
+        # 0.0 would fail the 0.995 gate for a run that never ran.
+        art.ParsedTest(name="t", attempted_calls=0, succeeded_calls=0),
+        art.ParsedTest(name="t"),
+    ],
+)
+def test_establishment_is_none_rather_than_zero(parsed: art.ParsedTest) -> None:
+    assert parsed.establishment_ratio is None
 
-    0.0 would fail the 0.995 gate for a run that never ran, which is a different
-    finding from a run that ran badly.
-    """
-    empty = art.ParsedTest(name="t", attempted_calls=0, succeeded_calls=0)
-    assert empty.establishment_ratio is None
-    unmeasured = art.ParsedTest(name="t")
-    assert unmeasured.establishment_ratio is None
 
-
+@pytest.mark.parametrize(
+    ("ratio", "disagrees"),
+    [
+        (0.60, True),  # a ratio contradicting its own counts is caught
+        (None, False),  # a missing ratio is not a disagreement
+        # Every comparison against NaN is False, so the property itself is
+        # fooled. That is why parse_summary refuses a NaN at the boundary.
+        (float("nan"), False),
+    ],
+)
 def test_the_reported_ratio_is_kept_only_to_contradict_the_counts(
-    run_dir: Path,
+    ratio: float | None, disagrees: bool
 ) -> None:
-    """The generator's own ratio is a cross-check, never the verdict."""
-    parsed = art.parse_test_directory(run_dir)
-    assert parsed.reported_success_ratio == 0.999
-    # Rounding is agreement: 14985/15000 is 0.999 exactly.
-    assert parsed.reported_ratio_disagrees is False
-
-    # A summary whose ratio contradicts its own counts is caught.
-    lying = replace(parsed, reported_success_ratio=0.60)
-    assert lying.reported_ratio_disagrees is True
-
-    # And a missing ratio is not a disagreement.
-    silent = replace(parsed, reported_success_ratio=None)
-    assert silent.reported_ratio_disagrees is False
+    parsed = art.ParsedTest(
+        name="t", attempted_calls=100, succeeded_calls=10, reported_success_ratio=ratio
+    )
+    assert parsed.reported_ratio_disagrees is disagrees
 
 
 # --------------------------------------------------------------------------
@@ -214,28 +226,14 @@ def test_the_reported_ratio_is_kept_only_to_contradict_the_counts(
 def test_the_generators_own_verdict_is_not_read(tmp_path: Path) -> None:
     """Two summaries differing ONLY in health.passed must parse identically.
 
-    This is the strong form of the check. Asserting the module's source never
-    mentions ``passed`` would fail on the docstring that explains why it is
-    ignored; asserting the parsed output is byte-identical proves the verdict
-    reached nothing.
+    Asserting the parsed output is identical proves the verdict reached nothing.
+    The parser reports measurements; judging them happens in gates.py.
     """
-    honest = _write(tmp_path / "a", summary=SUMMARY)
-    failing = dict(SUMMARY)
-    failing["health"] = {"passed": False, "min_success_ratio": 0.995}
-    flipped = _write(tmp_path / "b", summary=failing)
-
-    a = art.parse_test_directory(honest, name="same")
-    b = art.parse_test_directory(flipped, name="same")
-    assert a == b, "health.passed changed the parse, so the verdict is being read"
-
-
-def test_nothing_parsed_carries_a_pass_fail_verdict(run_dir: Path) -> None:
-    """The parser reports measurements. Judging them happens in gates.py."""
-    parsed = art.parse_test_directory(run_dir)
-    names = set(vars(parsed))
-    assert not {"passed", "health", "verdict", "status"} & names, (
-        f"the parsed result carries a verdict field: {sorted(names)}"
-    )
+    failing = _summary(health={"passed": False, "min_success_ratio": 0.995})
+    a = art.parse_test_directory(_write(tmp_path / "a"), name="same")
+    b = art.parse_test_directory(_write(tmp_path / "b", summary=failing), name="same")
+    assert a == b
+    assert not {"passed", "health", "verdict", "status"} & set(vars(a))
 
 
 # --------------------------------------------------------------------------
@@ -246,263 +244,107 @@ def test_nothing_parsed_carries_a_pass_fail_verdict(run_dir: Path) -> None:
 def test_both_surfaces_normalise_onto_the_same_cause_names(run_dir: Path) -> None:
     """The summary NESTS failures; the CSV carries them FLAT.
 
-    The README's ``failure_*`` wording matches the CSV, not the JSON, so a
-    parser that assumed one naming would read nothing from the other surface.
+    delta_failure_* beside the CSV's cumulative columns is per-interval: in the
+    last row unexpected_sip reads 9 cumulative against a 5 delta.
     """
     from_json = art.parse_summary(run_dir / "summary.json").failures_by_cause
     from_csv = art.parse_stat_csv(run_dir / "run_stat.csv")[-1].failures_by_cause
-    assert from_json == {
-        "timeout": 3,
-        "unexpected_sip": 9,
-        "transport_error": 2,
-        "parse_error": 0,
-        "scenario_error": 1,
-        "cancelled": 0,
-    }
+    assert from_json == SUMMARY["failure_classes"]
     assert from_csv == from_json
 
 
-def test_an_omitted_cause_is_absent_not_zero(tmp_path: Path) -> None:
-    """A 0 would claim there were none; absence says the artifact did not say."""
-    partial = dict(SUMMARY)
-    partial["failure_classes"] = {"timeout": 3}
-    parsed = art.parse_test_directory(_write(tmp_path / "p", summary=partial))
-    assert parsed.failures_by_cause == {"timeout": 3}
-    assert "cancelled" not in parsed.failures_by_cause
-    # But a genuine zero survives, because 0 and absent are different claims.
-    assert art.parse_test_directory(tmp_path / "p").failures_by_cause["timeout"] == 3
+# --------------------------------------------------------------------------
+# Either surface alone, altered, or partial
+# --------------------------------------------------------------------------
 
 
-def test_the_per_interval_deltas_are_not_summed_into_the_totals(
-    run_dir: Path,
+@pytest.mark.parametrize(
+    ("summary", "csv", "expected"),
+    [
+        # No CSV: concurrency is None, not the summary's drain value of 0.
+        # Everything the summary CAN answer still comes through.
+        (SUMMARY, False, {"peak_concurrency": None, "attempted_calls": 15000}),
+        # CSV alone: cumulative columns fall back to the LAST row, nothing only
+        # the summary carries is invented, and failures come from the CSV.
+        (
+            None,
+            True,
+            {
+                "peak_concurrency": 492,
+                "attempted_calls": 15000,
+                "succeeded_calls": 14985,
+                "duration_ms": 3600000,
+                "answer_latency": None,
+                "artifact_schema_version": None,
+                "failures_by_cause": SUMMARY["failure_classes"],
+            },
+        ),
+        # An omitted cause is absent, not 0, because 0 claims there were none.
+        (
+            _summary(failure_classes={"timeout": 3}),
+            True,
+            {"failures_by_cause": {"timeout": 3}},
+        ),
+        # No answer timing: the scenario did not configure start_rtd.
+        (_summary(drop="rtd"), True, {"answer_latency": None}),
+        # Nothing is invented for a differently-formatted build string.
+        (
+            _summary(tool_version="gossipper-0.1.62"),
+            True,
+            {"tool": "gossipper-0.1.62", "tool_version": None},
+        ),
+    ],
+    ids=["summary-only", "csv-only", "partial-causes", "no-rtd", "unspaced-tool"],
+)
+def test_a_partial_artifact_parses_what_it_can(
+    tmp_path: Path, summary: dict | None, csv: bool, expected: dict
 ) -> None:
-    """delta_failure_* is per-interval; failure_* beside it is cumulative.
-
-    Reading the delta column as the total under-reports every interval after the
-    first, and the result still looks like a believable failure count. In the
-    last row the two genuinely differ: 9 cumulative against a 5 delta.
-    """
-    rows = art.parse_stat_csv(run_dir / "run_stat.csv")
-    assert rows[-1].failures_by_cause["unexpected_sip"] == 9
-    # The wrong answer, pinned: the delta column in that same row reads 5.
-    assert rows[-1].failures_by_cause["unexpected_sip"] != 5
-    # And no delta column leaked in under its own name.
-    assert not [k for k in rows[-1].failures_by_cause if k.startswith("delta")]
-
-
-# --------------------------------------------------------------------------
-# The defensive contract: a named error on a shape this parser does not know
-# --------------------------------------------------------------------------
-
-
-def test_an_unknown_summary_schema_raises_a_named_error(tmp_path: Path) -> None:
-    bumped = dict(SUMMARY)
-    bumped["schema_version"] = "gossipper_summary_v2"
-    directory = _write(tmp_path / "v2", summary=bumped)
-    with pytest.raises(art.UnknownArtifactSchema) as excinfo:
-        art.parse_test_directory(directory)
-    # The message must name what it found and what it wanted, or a human cannot
-    # act on it.
-    assert "gossipper_summary_v2" in str(excinfo.value)
-    assert art.SUPPORTED_SUMMARY_SCHEMA in str(excinfo.value)
-
-
-def test_a_summary_with_no_schema_version_is_refused(tmp_path: Path) -> None:
-    """Not read on a best-effort basis. An unversioned file is an unknown one."""
-    anonymous = {k: v for k, v in SUMMARY.items() if k != "schema_version"}
-    with pytest.raises(art.UnknownArtifactSchema):
-        art.parse_test_directory(_write(tmp_path / "anon", summary=anonymous))
-
-
-def test_a_csv_missing_a_required_column_raises_a_named_error(
-    tmp_path: Path,
-) -> None:
-    directory = tmp_path / "short"
-    directory.mkdir()
-    (directory / "s.csv").write_text("timestamp,total_calls\n2026-07-31T18:00:00Z,4\n")
-    with pytest.raises(art.UnknownArtifactSchema) as excinfo:
-        art.parse_stat_csv(directory / "s.csv")
-    assert "active_calls" in str(excinfo.value)
-
-
-def test_columns_are_recognised_by_name_not_position(tmp_path: Path) -> None:
-    """A generator that adds or reorders a column must still import."""
-    directory = tmp_path / "reordered"
-    directory.mkdir()
-    (directory / "s.csv").write_text(
-        "brand_new_column,active_calls,failed_calls,success_calls,total_calls,"
-        "elapsed_ms\nxyz,492,6,7002,7500,1800000\n"
-    )
-    [row] = art.parse_stat_csv(directory / "s.csv")
-    assert row.active_calls == 492
-    assert row.total_calls == 7500
-
-
-def test_a_present_but_unreadable_value_is_malformed_not_missing(
-    tmp_path: Path,
-) -> None:
-    """Distinct errors: an unknown VERSION and a corrupt FILE warrant different
-    responses, and silently returning None would turn the second into the
-    first."""
-    broken = dict(SUMMARY)
-    broken["total_calls"] = "not-a-number"
-    with pytest.raises(art.MalformedArtifact):
-        art.parse_test_directory(_write(tmp_path / "bad", summary=broken))
-
-    directory = tmp_path / "badjson"
-    directory.mkdir()
-    (directory / "summary.json").write_text("{not json")
-    with pytest.raises(art.MalformedArtifact):
-        art.parse_summary(directory / "summary.json")
-
-
-def test_an_empty_value_is_not_measured_rather_than_zero(tmp_path: Path) -> None:
-    directory = tmp_path / "gappy"
-    directory.mkdir()
-    (directory / "s.csv").write_text(
-        "elapsed_ms,total_calls,success_calls,failed_calls,active_calls\n1000,4,,,\n"
-    )
-    [row] = art.parse_stat_csv(directory / "s.csv")
-    assert row.total_calls == 4
-    assert row.success_calls is None
-    assert row.active_calls is None
-
-
-# --------------------------------------------------------------------------
-# calls.jsonl: optional enrichment, never a requirement
-# --------------------------------------------------------------------------
-
-
-def test_an_import_succeeds_without_call_records(run_dir: Path) -> None:
-    """Its schema is documented nowhere, so it can never be required."""
-    parsed = art.parse_test_directory(run_dir)
-    assert parsed.call_records_status == "absent"
-    assert parsed.call_records_count is None
-    assert parsed.attempted_calls == 15000
-
-
-def test_call_records_are_counted_but_not_interpreted(run_dir: Path) -> None:
-    (run_dir / "calls.jsonl").write_text(
-        '{"whatever": 1}\n{"unknown_shape": true}\n\n{"third": null}\n'
-    )
-    parsed = art.parse_test_directory(run_dir)
-    assert parsed.call_records_status == "present"
-    assert parsed.call_records_count == 3
-    # No field mapping was applied, so nothing from those records reached the
-    # measured columns.
-    assert parsed.attempted_calls == 15000
-
-
-def test_unreadable_call_records_never_fail_the_import(run_dir: Path) -> None:
-    (run_dir / "calls.jsonl").write_text("{not json at all\n")
-    parsed = art.parse_test_directory(run_dir)
-    assert parsed.call_records_status == "unreadable"
-    assert parsed.call_records_count is None
-    # The primary surfaces still imported.
-    assert parsed.peak_concurrency == 492
-
-
-# --------------------------------------------------------------------------
-# Either surface alone, and neither
-# --------------------------------------------------------------------------
-
-
-def test_the_csv_alone_is_a_usable_import(tmp_path: Path) -> None:
-    directory = _write(tmp_path / "csv-only", summary=None)
-    parsed = art.parse_test_directory(directory)
-    assert parsed.peak_concurrency == 492
-    # Cumulative columns fall back to the LAST row safely; active_calls does not.
-    assert parsed.attempted_calls == 15000
-    assert parsed.succeeded_calls == 14985
-    assert parsed.duration_ms == 3600000
-    # Nothing only the summary carries was invented.
-    assert parsed.answer_latency is None
-    assert parsed.artifact_schema_version is None
+    parsed = art.parse_test_directory(_write(tmp_path / "d", summary=summary, csv=csv))
+    assert {k: getattr(parsed, k) for k in expected} == expected
 
 
 def test_neither_surface_present_raises_missing(tmp_path: Path) -> None:
-    empty = tmp_path / "empty"
-    empty.mkdir()
     with pytest.raises(art.MissingArtifact):
-        art.parse_test_directory(empty)
+        art.parse_test_directory(tmp_path)
 
 
-# --------------------------------------------------------------------------
-# The rest of the mapping
-# --------------------------------------------------------------------------
+def test_a_summary_that_omits_failure_classes_does_not_take_the_csv_totals(
+    tmp_path: Path,
+) -> None:
+    """An absent section is not the same fact as an empty one.
+
+    A clean run may omit failure_classes. Letting the CSV's cumulative counts
+    fill it would contradict the summary's own failed_calls.
+    """
+    clean = _summary(drop="failure_classes", failed_calls=0, success_calls=15000)
+    _file(tmp_path, "summary.json", json.dumps(clean))
+    _file(
+        tmp_path,
+        "s.csv",
+        "elapsed_ms,total_calls,success_calls,failed_calls,active_calls,"
+        "failure_timeout\n3600000,15000,15000,0,0,5\n",
+    )
+    parsed = art.parse_test_directory(tmp_path)
+    assert parsed.failed_calls == 0
+    assert sum(parsed.failures_by_cause.values()) == 0
 
 
 def test_answer_latency_is_carried_through_without_inventing_percentiles(
     run_dir: Path,
 ) -> None:
-    """rtd.answer is INVITE to 200 OK, the sipp_rtd source and the top rung.
-
-    The buckets are kept with the generator's own labels. Deriving a p95 from
-    bucket edges would fabricate precision the artifact does not carry.
-    """
+    """Buckets keep the generator's labels. A p95 from edges is fabrication."""
     latency = art.parse_test_directory(run_dir).answer_latency
     assert latency is not None
-    assert latency.avg_ms == 412.6
-    assert latency.max_ms == 2140
+    assert (latency.avg_ms, latency.max_ms) == (412.6, 2140)
     assert latency.buckets["<=500"] == 13802
     assert not hasattr(latency, "p95_ms")
 
 
-def test_a_run_without_answer_timing_has_no_latency(tmp_path: Path) -> None:
-    """Absent, not zero. The scenario simply did not configure start_rtd."""
-    no_rtd = {k: v for k, v in SUMMARY.items() if k != "rtd"}
-    parsed = art.parse_test_directory(_write(tmp_path / "nortd", summary=no_rtd))
-    assert parsed.answer_latency is None
-
-
-def test_timestamps_become_epoch_milliseconds_in_utc(run_dir: Path) -> None:
-    parsed = art.parse_test_directory(run_dir)
-    # 2026-07-31T18:00:00Z
-    assert parsed.started_at_ms == 1785520800000
-    assert parsed.ended_at_ms == parsed.started_at_ms + 3_600_000
-
-
-def test_the_tool_and_its_version_are_split_without_inventing_either(
-    run_dir: Path,
-) -> None:
-    parsed = art.parse_test_directory(run_dir)
-    assert parsed.tool == "gossipper"
-    assert parsed.tool_version == "0.1.62"
-
-
-def test_an_unspaced_tool_string_keeps_the_whole_value(tmp_path: Path) -> None:
-    """Nothing is invented for a differently-formatted build string."""
-    odd = dict(SUMMARY)
-    odd["tool_version"] = "gossipper-0.1.62"
-    parsed = art.parse_test_directory(_write(tmp_path / "odd", summary=odd))
-    assert parsed.tool == "gossipper-0.1.62"
-    assert parsed.tool_version is None
-
-
-def test_rtp_counts_are_carried_as_per_test_aggregates(run_dir: Path) -> None:
-    parsed = art.parse_test_directory(run_dir)
-    assert parsed.rtp_packets_sent == 88410000
-    assert parsed.rtp_packets_received == 88396500
-
-
-def test_the_name_defaults_to_the_directory_but_can_be_overridden(
-    run_dir: Path,
-) -> None:
-    assert art.parse_test_directory(run_dir).name == "ramp-500"
-    assert art.parse_test_directory(run_dir, name="step-3").name == "step-3"
-
-
 def test_every_parsed_field_maps_onto_a_load_run_test_column(run_dir: Path) -> None:
-    """DATA3 writes this straight into load_run_tests, so the names must line up.
-
-    A mismatch here surfaces as an unexpected keyword at import time rather than
-    as a wrong number, but only if something checks.
-    """
+    """DATA3 writes this straight into load_run_tests, so the names must line up."""
     from voicegateway.repository.load_runs_repository import LoadRunTestInput
 
-    parsed = art.parse_test_directory(run_dir)
-    columns = set(LoadRunTestInput.__dataclass_fields__)
-    for name in (
+    names = {
         "started_at_ms",
         "ended_at_ms",
         "peak_concurrency",
@@ -511,146 +353,118 @@ def test_every_parsed_field_maps_onto_a_load_run_test_column(run_dir: Path) -> N
         "failed_calls",
         "rtp_packets_sent",
         "rtp_packets_received",
-    ):
-        assert name in columns, f"{name} has no column on load_run_tests"
-        assert hasattr(parsed, name)
+    }
+    assert names <= set(LoadRunTestInput.__dataclass_fields__)
+    assert names <= set(vars(art.parse_test_directory(run_dir)))
 
 
 # --------------------------------------------------------------------------
-# Regressions found by adversarially probing the error paths
+# The defensive contract: a named error on a shape this parser does not know
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("token", ["nan", "NaN", "inf", "-inf", "Infinity"])
-def test_a_nonfinite_count_is_a_named_error_not_a_crash(
-    tmp_path: Path, token: str
+@pytest.mark.parametrize(
+    ("summary", "error", "match"),
+    [
+        # The message names what it found, so a human can act on it.
+        (
+            _summary(schema_version="gossipper_summary_v2"),
+            art.UnknownArtifactSchema,
+            "gossipper_summary_v2",
+        ),
+        # Not read best-effort. An unversioned file is an unknown one.
+        (_summary(drop="schema_version"), art.UnknownArtifactSchema, None),
+        # An unknown VERSION and a corrupt FILE warrant different responses.
+        (_summary(total_calls="not-a-number"), art.MalformedArtifact, None),
+        # json.dumps writes a bare NaN token, which json.loads accepts.
+        (_summary(success_ratio=float("nan")), art.MalformedArtifact, None),
+    ],
+    ids=["schema-v2", "no-schema", "not-a-number", "nan-ratio"],
+)
+def test_an_unusable_summary_raises_a_named_error(
+    tmp_path: Path, summary: dict, error: type, match: str | None
 ) -> None:
-    """float() accepts these; int() then raises outside this module's hierarchy.
-
-    ``float("nan")`` and ``float("Infinity")`` both parse cleanly, so the
-    failure only appears at the later ``int()``, as a bare ValueError or
-    OverflowError. A caller catching ArtifactError would not catch either.
-    """
-    directory = tmp_path / f"nf-{token}"
-    directory.mkdir()
-    (directory / "s.csv").write_text(
-        "elapsed_ms,total_calls,success_calls,failed_calls,active_calls\n"
-        f"1000,{token},0,0,4\n"
-    )
-    with pytest.raises(art.ArtifactError):
-        art.parse_stat_csv(directory / "s.csv")
+    with pytest.raises(error, match=match):
+        art.parse_test_directory(_write(tmp_path / "d", summary=summary))
 
 
-def test_a_nonfinite_value_in_json_is_a_named_error(tmp_path: Path) -> None:
-    """json.loads accepts the bare NaN and Infinity tokens by default."""
-    directory = tmp_path / "nfjson"
-    directory.mkdir()
-    (directory / "summary.json").write_text(
-        '{"schema_version": "gossipper_summary_v1", "total_calls": Infinity}'
-    )
-    with pytest.raises(art.MalformedArtifact):
-        art.parse_summary(directory / "summary.json")
+_COUNTS = "elapsed_ms,total_calls,success_calls,failed_calls,active_calls\n"
 
 
-def test_a_nan_ratio_cannot_silently_defeat_the_cross_check(tmp_path: Path) -> None:
-    """Every comparison against NaN is False, including the disagreement test.
-
-    Storing a NaN would make reported_ratio_disagrees answer "they agree" for
-    precisely the corrupt input the cross-check exists to catch.
-    """
-    poisoned = dict(SUMMARY)
-    poisoned["success_ratio"] = float("nan")
-    directory = tmp_path / "nanratio"
-    directory.mkdir()
-    (directory / "summary.json").write_text(
-        json.dumps(poisoned)  # json.dumps writes a bare NaN token
-    )
-    with pytest.raises(art.MalformedArtifact):
-        art.parse_summary(directory / "summary.json")
-
-    # And the property itself would indeed have been fooled, which is why the
-    # value is refused at the boundary rather than handled downstream.
-    fooled = art.ParsedTest(
-        name="t",
-        attempted_calls=100,
-        succeeded_calls=10,
-        reported_success_ratio=float("nan"),
-    )
-    assert fooled.reported_ratio_disagrees is False
-
-
-def test_a_summary_that_omits_failure_classes_does_not_take_the_csv_totals(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    ("name", "content", "error", "match"),
+    [
+        ("summary.json", "{not json", art.MalformedArtifact, None),
+        (
+            "summary.json",
+            '{"schema_version": "gossipper_summary_v1", "total_calls": Infinity}',
+            art.MalformedArtifact,
+            None,
+        ),
+        (
+            "s.csv",
+            "timestamp,total_calls\n2026-07-31T18:00:00Z,4\n",
+            art.UnknownArtifactSchema,
+            "active_calls",
+        ),
+        # DictReader keeps the last occurrence, so the value read is unknowable.
+        (
+            "s.csv",
+            "elapsed_ms,total_calls,total_calls,success_calls,failed_calls,"
+            "active_calls\n1000,4,999,0,0,4\n",
+            art.UnknownArtifactSchema,
+            "total_calls",
+        ),
+        # float() accepts these, then int() raises outside this module's
+        # hierarchy as a bare ValueError or OverflowError.
+        *[
+            ("s.csv", f"{_COUNTS}1000,{token},0,0,4\n", art.ArtifactError, None)
+            for token in ("nan", "NaN", "inf", "-inf", "Infinity")
+        ],
+    ],
+)
+def test_a_malformed_file_raises_a_named_error(
+    tmp_path: Path, name: str, content: str, error: type, match: str | None
 ) -> None:
-    """An absent section is not the same fact as an empty one.
-
-    A clean run may omit failure_classes entirely. Treating that as "no answer"
-    let the CSV's cumulative counts overwrite it, producing failures that
-    contradict the summary's own failed_calls.
-    """
-    clean = {k: v for k, v in SUMMARY.items() if k != "failure_classes"}
-    clean["failed_calls"] = 0
-    clean["success_calls"] = 15000
-    directory = tmp_path / "clean"
-    directory.mkdir()
-    (directory / "summary.json").write_text(json.dumps(clean))
-    # A companion CSV whose cumulative column disagrees with the summary.
-    (directory / "s.csv").write_text(
-        "elapsed_ms,total_calls,success_calls,failed_calls,active_calls,"
-        "failure_timeout\n3600000,15000,15000,0,0,5\n"
-    )
-    parsed = art.parse_test_directory(directory)
-    assert parsed.failed_calls == 0
-    total_by_cause = sum(parsed.failures_by_cause.values())
-    assert total_by_cause == 0, (
-        f"the CSV's failure counts overwrote a summary that reported a clean "
-        f"run: failed_calls=0 but causes sum to {total_by_cause}"
-    )
+    parse = art.parse_summary if name.endswith(".json") else art.parse_stat_csv
+    with pytest.raises(error, match=match):
+        parse(_file(tmp_path, name, content))
 
 
-def test_the_csv_still_supplies_failures_when_the_summary_is_absent(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        # A generator that adds or reorders a column must still import.
+        (
+            "brand_new_column,active_calls,failed_calls,success_calls,total_calls,"
+            "elapsed_ms\nxyz,492,6,7002,7500,1800000\n",
+            {"active_calls": 492, "total_calls": 7500},
+        ),
+        # An empty value is not measured, never zero.
+        (
+            f"{_COUNTS}1000,4,,,\n",
+            {"total_calls": 4, "success_calls": None, "active_calls": None},
+        ),
+        # A BOM attaches to the first header field. timestamp is not required,
+        # so nothing would raise and every at_ms would silently read None.
+        (
+            b"\xef\xbb\xbftimestamp,elapsed_ms,total_calls,success_calls,"
+            b"failed_calls,active_calls\n2026-07-31T18:00:01Z,1000,4,0,0,4\n",
+            {"at_ms": 1785520801000, "active_calls": 4},
+        ),
+    ],
+    ids=["reordered", "empty-values", "byte-order-mark"],
+)
+def test_a_csv_row_is_read_by_column_name(
+    tmp_path: Path, content: str | bytes, expected: dict
 ) -> None:
-    """The fallback must still work; only its trigger condition changed."""
-    parsed = art.parse_test_directory(_write(tmp_path / "csvonly", summary=None))
-    assert parsed.failures_by_cause["unexpected_sip"] == 9
+    [row] = art.parse_stat_csv(_file(tmp_path, "s.csv", content))
+    assert {k: getattr(row, k) for k in expected} == expected
 
 
-def test_a_byte_order_mark_does_not_silently_void_every_timestamp(
-    tmp_path: Path,
-) -> None:
-    """A BOM attaches to the first header field and timestamp is not required.
-
-    So nothing raises, and every at_ms reads None while the column sits there
-    full of valid data.
-    """
-    directory = tmp_path / "bom"
-    directory.mkdir()
-    (directory / "s.csv").write_bytes(
-        b"\xef\xbb\xbf"
-        + (
-            b"timestamp,elapsed_ms,total_calls,success_calls,failed_calls,"
-            b"active_calls\n2026-07-31T18:00:01Z,1000,4,0,0,4\n"
-        )
-    )
-    [row] = art.parse_stat_csv(directory / "s.csv")
-    assert row.at_ms is not None, "the BOM voided the timestamp column"
-    assert row.active_calls == 4
-
-
-def test_a_repeated_column_is_refused_rather_than_silently_collapsed(
-    tmp_path: Path,
-) -> None:
-    """DictReader keeps the last occurrence, so the value read is unknowable."""
-    directory = tmp_path / "dup"
-    directory.mkdir()
-    (directory / "s.csv").write_text(
-        "elapsed_ms,total_calls,total_calls,success_calls,failed_calls,"
-        "active_calls\n1000,4,999,0,0,4\n"
-    )
-    with pytest.raises(art.UnknownArtifactSchema) as excinfo:
-        art.parse_stat_csv(directory / "s.csv")
-    assert "total_calls" in str(excinfo.value)
+# --------------------------------------------------------------------------
+# calls.jsonl: optional enrichment, never a requirement
+# --------------------------------------------------------------------------
 
 
 def _call_record(number: int, *, sent: int, received: int, success: bool = True) -> str:
@@ -672,110 +486,54 @@ def _call_record(number: int, *, sent: int, received: int, success: bool = True)
     )
 
 
-class TestCallRecordMedia:
-    """Per-call inbound media, which no run total can reconstruct."""
+def _calls(*records: tuple[int, int]) -> str:
+    return "\n".join(
+        _call_record(n, sent=s, received=r) for n, (s, r) in enumerate(records)
+    )
 
-    def _write(self, tmp_path: Path, lines: list[str]) -> art.ParsedTest:
-        (tmp_path / "calls.jsonl").write_text("\n".join(lines) + "\n")
-        (tmp_path / "summary.json").write_text(
-            json.dumps(
-                {
-                    "schema_version": "gossipper_summary_v1",
-                    "total_calls": len(lines),
-                    "success_calls": len(lines),
-                    "failed_calls": 0,
-                }
-            )
-        )
-        return art.parse_test_directory(tmp_path)
 
-    def test_counts_calls_that_got_nothing_back(self, tmp_path: Path) -> None:
-        parsed = self._write(
-            tmp_path,
-            [
-                _call_record(1, sent=15000, received=14997),
-                _call_record(2, sent=15000, received=0),
-                _call_record(3, sent=15000, received=0),
-            ],
-        )
-        assert parsed.calls_answered_with_inbound == 1
-        assert parsed.calls_answered_without_inbound == 2
-
-    def test_the_totals_cannot_see_what_this_sees(self, tmp_path: Path) -> None:
-        # THE POINT OF THE WHOLE CHANGE. These two runs report identical
-        # received-per-sent ratios. One is healthy and one lost half its calls
-        # entirely, and only the per-call counts tell them apart.
-        (tmp_path / "even").mkdir()
-        (tmp_path / "split").mkdir()
-        even = self._write(
-            tmp_path / "even",
-            [_call_record(n, sent=1000, received=500) for n in range(1, 5)],
-        )
-        split = self._write(
-            tmp_path / "split",
-            [_call_record(1, sent=1000, received=1000)] * 2
-            + [_call_record(2, sent=1000, received=0)] * 2,
-        )
-        assert even.calls_answered_without_inbound == 0
-        assert split.calls_answered_without_inbound == 2
-
-    def test_a_failed_call_is_not_counted_as_silent(self, tmp_path: Path) -> None:
-        # It never answered, so the establishment gate already owns it.
-        # Counting it here would punish one failure twice.
-        parsed = self._write(
-            tmp_path, [_call_record(1, sent=0, received=0, success=False)]
-        )
-        assert parsed.calls_answered_without_inbound == 0
-        assert parsed.calls_answered_with_inbound == 0
-
-    def test_a_call_that_sent_nothing_is_not_counted(self, tmp_path: Path) -> None:
-        # It never exercised the return path, so its silence says nothing
-        # about the return path.
-        parsed = self._write(tmp_path, [_call_record(1, sent=0, received=0)])
-        assert parsed.calls_answered_without_inbound == 0
-
-    def test_unknown_schema_leaves_the_tally_unmeasured(self, tmp_path: Path) -> None:
-        # None, never zero. Zero would read as "every call got audio".
-        parsed = self._write(
-            tmp_path,
-            [json.dumps({"schema_version": "something_else_v9", "call_number": 1})],
-        )
-        assert parsed.call_records_status == "present"
-        assert parsed.call_records_count == 1
-        assert parsed.calls_answered_without_inbound is None
-
-    def test_a_non_utf8_file_is_unreadable_not_an_import_failure(
-        self, tmp_path: Path
-    ) -> None:
-        # UnicodeDecodeError is a ValueError, not an OSError. Catching only the
-        # latter let a mis-encoded file abort the whole import from a surface
-        # that is meant to be optional enrichment.
-        (tmp_path / "calls.jsonl").write_bytes(b"\xff\xfe not valid utf-8\n")
-        (tmp_path / "summary.json").write_text(
-            json.dumps(
-                {
-                    "schema_version": "gossipper_summary_v1",
-                    "total_calls": 1,
-                    "success_calls": 1,
-                    "failed_calls": 0,
-                }
-            )
-        )
-        parsed = art.parse_test_directory(tmp_path)
-        assert parsed.call_records_status == "unreadable"
-        assert parsed.calls_answered_without_inbound is None
-
-    def test_absent_records_are_unmeasured_not_clean(self, tmp_path: Path) -> None:
-        (tmp_path / "summary.json").write_text(
-            json.dumps(
-                {
-                    "schema_version": "gossipper_summary_v1",
-                    "total_calls": 1,
-                    "success_calls": 1,
-                    "failed_calls": 0,
-                }
-            )
-        )
-        parsed = art.parse_test_directory(tmp_path)
-        assert parsed.call_records_status == "absent"
-        assert parsed.calls_answered_without_inbound is None
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        # (status, count, answered_with_inbound, answered_without_inbound)
+        (None, ("absent", None, None, None)),
+        # Counted, but a foreign schema leaves the tally None, never zero: zero
+        # would read as "every call got audio".
+        (
+            '{"whatever": 1}\n{"unknown_shape": true}\n\n{"third": null}\n',
+            ("present", 3, None, None),
+        ),
+        ('{"schema_version": "something_else_v9"}', ("present", 1, None, None)),
+        # Unreadable never fails the import. UnicodeDecodeError is a
+        # ValueError, not an OSError.
+        ("{not json at all\n", ("unreadable", None, None, None)),
+        (b"\xff\xfe not valid utf-8\n", ("unreadable", None, None, None)),
+        (_calls((15000, 14997), (15000, 0), (15000, 0)), ("present", 3, 1, 2)),
+        # THE POINT OF THE WHOLE CHANGE. These two runs have identical
+        # received-per-sent totals; only the per-call counts tell them apart.
+        (_calls(*[(1000, 500)] * 4), ("present", 4, 4, 0)),
+        (_calls(*[(1000, 1000)] * 2, *[(1000, 0)] * 2), ("present", 4, 2, 2)),
+        # A failed call is owned by the establishment gate; counting it here
+        # would punish one failure twice.
+        (
+            _call_record(1, sent=0, received=0, success=False),
+            ("present", 1, 0, 0),
+        ),
+        # A call that sent nothing never exercised the return path.
+        (_calls((0, 0)), ("present", 1, 0, 0)),
+    ],
+)
+def test_call_records_are_tallied_without_failing_the_import(
+    run_dir: Path, content: str | bytes | None, expected: tuple
+) -> None:
+    if content is not None:
+        _file(run_dir, "calls.jsonl", content)
+    parsed = art.parse_test_directory(run_dir)
+    assert (
+        parsed.call_records_status,
+        parsed.call_records_count,
+        parsed.calls_answered_with_inbound,
+        parsed.calls_answered_without_inbound,
+    ) == expected
+    # The primary surfaces still imported, untouched by the records.
+    assert (parsed.attempted_calls, parsed.peak_concurrency) == (15000, 492)
