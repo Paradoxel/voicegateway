@@ -1,0 +1,11 @@
+---
+// The gauge mark: a reading on a meter. Drawn from the theme, so it follows light and dark.
+interface Props { size?: number }
+const { size = 22 } = Astro.props;
+---
+<svg viewBox="104 176 472 300" width={size} height={Math.round((size * 300) / 472)} aria-hidden="true" class="mark">
+  <path d="M140 420 A200 200 0 0 1 540 420" fill="none" stroke="var(--vg-line-strong)" stroke-width="44" stroke-linecap="round" />
+  <path d="M140 420 A200 200 0 0 1 283 198" fill="none" stroke="var(--vg-accent)" stroke-width="44" stroke-linecap="round" />
+  <line x1="340" y1="420" x2="238" y2="206" stroke="var(--vg-ink)" stroke-width="22" stroke-linecap="round" />
+  <circle cx="340" cy="420" r="34" fill="var(--vg-ink)" />
+</svg>

@@ -1,0 +1,9 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="VoiceGateway">
+  <rect width="64" height="64" rx="14" fill="#0a0a0a"/>
+  <g transform="translate(4.6 13.6) scale(0.1)" fill="none" stroke-linecap="round">
+    <path d="M40 330 A200 200 0 0 1 440 330" stroke="#262626" stroke-width="56"/>
+    <path d="M40 330 A200 200 0 0 1 183 108" stroke="#cba6f7" stroke-width="56"/>
+    <line x1="240" y1="330" x2="138" y2="116" stroke="#fafafa" stroke-width="28"/>
+    <circle cx="240" cy="330" r="40" fill="#fafafa" stroke="none"/>
+  </g>
+</svg>
