@@ -59,7 +59,7 @@ docker compose --profile local up -d     # + Ollama
 
 **HTTP API (`src/voicegateway/server/main.py`):** one FastAPI app mounting the system router (`/health`), the `/v1/*` router (`server/api/`: costs, projects, logs, metrics, models, providers, accounting, ingest, sessions, and more), the dashboard router, and the openorca router. The MCP server behind `voicegw mcp` lives in `server/mcp/`.
 
-**Dashboard API (`/api/*`):** served by the same combined server, not a separate process. `server/routes.py` builds `dashboard_router = APIRouter(prefix="/api")` from `server/api/dashboard/` and `server/main.py` includes it. Read endpoints live here under `require_principal`; `/v1/*` above is the write and ingest surface. The standalone dashboard FastAPI at `src/dashboard/api/main.py` was deleted in 2026-05: the routes moved, they did not go away.
+**Dashboard API (`/api/*`):** served by the same combined server, not a separate process. `server/routes.py` builds `dashboard_router = APIRouter(prefix="/api")` from `server/api/dashboard/` and `server/main.py` includes it. Read endpoints live here under `require_principal`; `/v1/*` above carries reads as well as every write and ingest route. The standalone dashboard FastAPI at `src/dashboard/api/main.py` was deleted in 2026-05: the routes moved, they did not go away.
 
 **Dashboard UI (`src/dashboard/`):** two SPAs plus branding assets. `frontend/` is the React/TypeScript/Vite dashboard (Recharts, Neo-Brutalism aesthetic); `console/` is a smaller SPA built on `@openorca-ui/react`. `api/` now holds only `static/branding/` images and no Python. The combined server serves the built SPA at `/` (see `server/static.py`).
 
