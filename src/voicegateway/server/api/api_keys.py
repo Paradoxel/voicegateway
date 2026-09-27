@@ -38,7 +38,7 @@ router = APIRouter(
 @inject
 async def create_api_key(
     payload: ApiKeyCreate,
-    service: ApiKeyService = Depends(Provide[Container.api_key_service]),
+    service: ApiKeyService = Depends(Provide[Container.services.api_key_service]),
 ) -> CreatedApiKey:
     """Mint a new virtual key. The plaintext is returned exactly once."""
     try:
@@ -67,7 +67,7 @@ async def create_api_key(
 @inject
 async def list_api_keys(
     include_revoked: bool = Query(True),
-    service: ApiKeyService = Depends(Provide[Container.api_key_service]),
+    service: ApiKeyService = Depends(Provide[Container.services.api_key_service]),
 ) -> ApiKeyListResponse:
     """List every virtual key. The bcrypt hash is never exposed."""
     rows = await service.list_keys(include_revoked=include_revoked)
@@ -79,7 +79,7 @@ async def list_api_keys(
 @inject
 async def get_api_key(
     key_id: int,
-    service: ApiKeyService = Depends(Provide[Container.api_key_service]),
+    service: ApiKeyService = Depends(Provide[Container.services.api_key_service]),
 ) -> ApiKeyResponse:
     """Fetch one key by id. 404 when missing."""
     row = await service.get_by_id(key_id)
@@ -90,7 +90,7 @@ async def get_api_key(
 @inject
 async def revoke_api_key(
     key_id: int,
-    service: ApiKeyService = Depends(Provide[Container.api_key_service]),
+    service: ApiKeyService = Depends(Provide[Container.services.api_key_service]),
 ) -> None:
     """Soft-revoke a key. Idempotent: 204 whether or not the row was active."""
     try:

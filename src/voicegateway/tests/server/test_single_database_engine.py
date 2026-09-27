@@ -16,7 +16,7 @@ def test_container_reuses_the_storage_engine(monkeypatch, tmp_path) -> None:
     gw = Gateway(require_config=False)
     app = build_app(gw, enable_mcp_sse=False, enable_dashboard=False)
 
-    assert app.state.container.database() is gw.storage.database
+    assert app.state.container.infra.database() is gw.storage.database
 
 
 def test_container_builds_its_own_engine_without_storage(monkeypatch, tmp_path) -> None:
@@ -28,4 +28,4 @@ def test_container_builds_its_own_engine_without_storage(monkeypatch, tmp_path) 
     assert gw.storage is None
     app = build_app(gw, enable_mcp_sse=False, enable_dashboard=False)
 
-    assert app.state.container.database() is not None
+    assert app.state.container.infra.database() is not None
