@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://discord.gg/ysFaF4uSB
+    about: Ask in Discord. Issues are for bugs and scoped features.
+  - name: Security report
+    url: https://github.com/mahimailabs/voicegateway/security/policy
+    about: Report privately. Please do not open a public issue.
