@@ -73,7 +73,9 @@ dashboard = [
     "fastapi>=0.115.0",
     "uvicorn>=0.32.0",
     "python-multipart>=0.0.9",
-    "dependency-injector>=4.43",
+    # 4.49.1 fixes sync resource shutdown with async deps; below 5 because a
+    # major release may change wiring semantics the server container relies on.
+    "dependency-injector>=4.49.1,<5",
     "pydantic-settings>=2.0",
     "asgi-correlation-id>=4.3",
     "loguru>=0.7",

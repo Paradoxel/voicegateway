@@ -1,12 +1,9 @@
-"""Async function-style repo for the ``api_keys`` table (ORM).
+"""Async function-style repo for the ``api_keys`` table: the only one.
 
-The ORM class-based :class:`voicegateway.repository.api_key_repository.ApiKeyRepository`
-is used by FastAPI admin endpoints through the DI container. This
-function-style module remains the authentication-runtime path (used
-by :mod:`voicegateway.core.auth` to verify ``Bearer vk_…`` headers
-and by the CLI for create/revoke/list operations). Both back the same
-``api_keys`` table; this module's bodies now use AsyncSession +
-SQLAlchemy text() so they coexist cleanly on the unified ORM stack.
+Request authentication (``Bearer vk_…``), the CLI, the dashboard and, through
+:class:`voicegateway.services.api_key_service.ApiKeyService`, the
+``/v1/api-keys`` routes all go through these functions, so hashing, prefixes,
+scope normalization and the wildcard refusal have one implementation.
 """
 
 from __future__ import annotations

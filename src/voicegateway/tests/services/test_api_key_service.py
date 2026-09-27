@@ -1,38 +1,19 @@
-"""End-to-end test of the ORM-based ApiKey stack."""
+"""End-to-end test of ApiKeyService over the api-keys repository."""
 
 from __future__ import annotations
 
 import pytest
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
 
-from voicegateway.repository.api_key_repository import ApiKeyRepository
 from voicegateway.services.api_key_service import ApiKeyService
 from voicegateway.services.storage_service import StorageService
 
 
 @pytest.fixture
 async def service(tmp_path):
-    """Bootstrap schema via the legacy storage, then build the ORM stack."""
-    db_path = tmp_path / "vk-orm.db"
-    storage = StorageService(db_path=str(db_path))
-    await storage._ensure_initialized()
-
-    engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
-    session_factory = async_sessionmaker(
-        bind=engine, class_=AsyncSession, expire_on_commit=False
-    )
-
-    class _SessionCtx:
-        def __call__(self):
-            return session_factory()
-
-    repo = ApiKeyRepository(session_factory=_SessionCtx())
-    yield ApiKeyService(repository=repo)
-    await engine.dispose()
+    """The service over a real, migrated SQLite store, as the container wires it."""
+    storage = StorageService(db_path=str(tmp_path / "vk.db"))
+    yield ApiKeyService(session_factory=storage.session)
+    await storage.aclose()
 
 
 async def test_create_returns_plaintext_once(service: ApiKeyService) -> None:
