@@ -1,16 +1,10 @@
-# Cross-tenant security fixtures (Wave 0)
+# Cross-tenant security fixtures
 
 Six cases, each one request by one actor against one victim tenant, plus what
 the contract says must happen. They are data, not tests: the runner lives in
 `tests/server/test_telemetry_tenant_isolation_contract.py`.
 
-## Why this directory is not `fixtures/telemetry/`
-
-The roadmap named `fixtures/telemetry/` for this work, but Codex's trace
-contract claims that path in the same wave. Two agents writing different
-schemas into one directory in one wave is a collision with no upside, so the
-security cases live here instead. Codex has been notified; see the Codex
-handoff section of `specs/observability-security.md`.
+## Layout
 
 There is no `__init__.py`, matching `fixtures/streaming/`. The modules import
 fine as a namespace package.

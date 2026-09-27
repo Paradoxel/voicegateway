@@ -1,4 +1,4 @@
-"""Shared app harness for the Wave 0 telemetry security contract tests.
+"""Shared app harness for the telemetry security tests.
 
 ``_Harness`` and ``_make_key`` are copied from
 ``test_read_tenant_isolation.py`` rather than imported. Importing a private
@@ -112,7 +112,7 @@ async def _make_key(gateway, *, tenant_id=None, role="tenant", scopes="read"):
 # generator lives outside src/ so it is neither linted nor type-checked, and a
 # test must not depend on an unchecked file for its own correctness. The one
 # assumption the two share (require_scope's closure shape) is asserted
-# directly by test_telemetry_security_contract.py, so a refactor that breaks
+# directly by test_telemetry_authorization_matrix.py, so a refactor that breaks
 # it fails loudly in one obvious place rather than silently mislabelling rows.
 
 _SCOPE_QUALNAME = "require_scope.<locals>._dep"

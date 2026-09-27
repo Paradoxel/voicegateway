@@ -1,4 +1,4 @@
-"""Wave 0: replay the cross-tenant fixtures against a real app.
+"""Replay the cross-tenant fixtures against a real app.
 
 The file is split into three labelled sections, one per fixture kind, because
 they mean different things and a reader must not confuse them:
@@ -11,8 +11,8 @@ they mean different things and a reader must not confuse them:
   carries ``xfail(strict=True)``: it fails now, and the day the fix lands it
   XPASSes, which strict turns into a failure so the implementer has to delete
   the marker deliberately rather than leaving a dead test behind.
-- **Absence guards** assert the surfaces a planned rule would need do not
-  exist yet.
+- **Absence guards** assert the surfaces a known gap lacks genuinely do
+  not exist yet.
 
 Everything is driven from ``tests/fixtures/security/``. Adding a case there
 adds a test here.
@@ -250,7 +250,7 @@ async def test_characterize_current_defect(harness, fixture: SecurityFixture):
 
 @pytest.mark.parametrize("fixture", _cases("characterization", xfail=True))
 async def test_contract_is_met(harness, fixture: SecurityFixture):
-    """The Wave 1 target. Expected to fail until the gap is closed."""
+    """The contract target. Expected to fail until the gap is closed."""
     status, rows = await _replay(harness, fixture)
     assert status in fixture.contract.status_code
     if fixture.contract.victim_rows is not None:

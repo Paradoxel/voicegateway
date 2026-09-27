@@ -128,7 +128,6 @@ def _skeleton(row: dict) -> dict:
             "status": "gap",
             "tenant_scoped": True,
             "gap_id": "VG-SEC-004",
-            "wave": 1,
             "note": "GENERATED: unauthenticated read. Classify by hand.",
         }
     else:
