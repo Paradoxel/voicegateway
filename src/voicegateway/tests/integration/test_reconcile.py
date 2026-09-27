@@ -10,210 +10,188 @@ import pytest
 from voicegateway.services import reconciliation_service as reconcile
 
 
-def test_parse_provider_file_openai_csv(tmp_path):
-    path = tmp_path / "openai.csv"
-    path.write_text(
-        "model,input_tokens,output_tokens,n_requests,cost_usd\n"
-        "gpt-4o-mini,1000000,500000,500,0.225\n"
-    )
-    parsed = reconcile.parse_provider_file("openai", path)
-    assert parsed["gpt-4o-mini"]["units"] == 1_500_000  # input + output
-    assert parsed["gpt-4o-mini"]["cost"] == pytest.approx(0.225, abs=0.001)
+def _assert_parsed(parsed, expected):
+    """``expected`` maps model -> the fields to pin; models must match exactly."""
+    assert set(parsed) == set(expected)
+    for model, fields in expected.items():
+        for field, value in fields.items():
+            assert parsed[model][field] == pytest.approx(value, abs=0.0001), (
+                model,
+                field,
+            )
 
 
-def test_parse_provider_file_openai_csv_multiple_models(tmp_path):
-    """A real OpenAI export lists several models; each lands as its own key."""
-    path = tmp_path / "openai-multi.csv"
-    path.write_text(
-        "model,input_tokens,output_tokens,n_requests,cost_usd\n"
-        "gpt-4o-mini,1000000,500000,500,0.225\n"
-        "gpt-4o,200000,100000,200,0.900\n"
-        "gpt-4-turbo,50000,25000,80,1.200\n"
-    )
-    parsed = reconcile.parse_provider_file("openai", path)
-    assert set(parsed) == {"gpt-4o-mini", "gpt-4o", "gpt-4-turbo"}
-    assert parsed["gpt-4o-mini"]["units"] == 1_500_000
-    assert parsed["gpt-4o"]["units"] == 300_000
-    assert parsed["gpt-4-turbo"]["units"] == 75_000
-    # n_requests carries through per row.
-    assert parsed["gpt-4o"]["n_requests"] == 200
-    assert parsed["gpt-4-turbo"]["cost"] == pytest.approx(1.200, abs=0.001)
+_CARTESIA_JSON = json.dumps(
+    [
+        {
+            "model": "sonic-3",
+            "characters": 2_500_000,
+            "credits": 250_000,
+            "n_requests": 1000,
+            "cost_usd": 30.0,
+        },
+    ]
+)
 
 
-def test_parse_provider_file_openai_csv_handles_missing_columns(tmp_path):
-    """Rows missing optional columns surface as zero rather than KeyError."""
-    path = tmp_path / "openai-sparse.csv"
-    # n_requests and cost_usd intentionally absent to confirm the
-    # `row.get(..., 0) or 0` fallback works against real-world
-    # exports that may omit columns the operator did not export.
-    path.write_text("model,input_tokens,output_tokens\ngpt-4o-mini,1000,500\n")
-    parsed = reconcile.parse_provider_file("openai", path)
-    assert parsed["gpt-4o-mini"]["units"] == 1500
-    assert parsed["gpt-4o-mini"]["cost"] == 0.0
-    assert parsed["gpt-4o-mini"]["n_requests"] == 0.0
-
-
-def test_parse_provider_file_deepgram_csv(tmp_path):
-    path = tmp_path / "deepgram.csv"
-    path.write_text(
-        "model,audio_seconds,n_requests,cost_usd\nnova-3,180000.0,1500,8.700\n"
-    )
-    parsed = reconcile.parse_provider_file("deepgram", path)
-    assert parsed["nova-3"]["units"] == pytest.approx(180000.0, abs=0.1)
-    assert parsed["nova-3"]["cost"] == pytest.approx(8.700, abs=0.001)
-
-
-def test_parse_provider_file_deepgram_csv_multiple_models(tmp_path):
-    """A real Deepgram export may list nova-3, nova-2, and flux side-by-side."""
-    path = tmp_path / "deepgram-multi.csv"
-    path.write_text(
-        "model,audio_seconds,n_requests,cost_usd\n"
-        "nova-3,180000.0,1500,8.700\n"
-        "nova-2,90000.0,800,4.350\n"
-        "flux-general,30000.0,250,1.450\n"
-    )
-    parsed = reconcile.parse_provider_file("deepgram", path)
-    assert set(parsed) == {"nova-3", "nova-2", "flux-general"}
-    assert parsed["nova-3"]["units"] == pytest.approx(180000.0, abs=0.1)
-    assert parsed["nova-2"]["units"] == pytest.approx(90000.0, abs=0.1)
-    assert parsed["flux-general"]["units"] == pytest.approx(30000.0, abs=0.1)
-    assert parsed["nova-2"]["n_requests"] == 800
-    assert parsed["flux-general"]["cost"] == pytest.approx(1.450, abs=0.001)
-
-
-def test_parse_provider_file_deepgram_csv_handles_missing_columns(tmp_path):
-    """Rows missing n_requests + cost_usd surface as zero, not KeyError."""
-    path = tmp_path / "deepgram-sparse.csv"
-    path.write_text("model,audio_seconds\nnova-3,12000.0\n")
-    parsed = reconcile.parse_provider_file("deepgram", path)
-    assert parsed["nova-3"]["units"] == pytest.approx(12000.0, abs=0.1)
-    assert parsed["nova-3"]["cost"] == 0.0
-    assert parsed["nova-3"]["n_requests"] == 0.0
-
-
-def test_parse_provider_file_deepgram_csv_units_are_seconds_not_minutes(
-    tmp_path,
-):
-    """Canonical schema's units column is `audio_seconds`; the parser must not"""
-    path = tmp_path / "deepgram-units.csv"
-    path.write_text("model,audio_seconds,n_requests,cost_usd\nnova-3,3600.0,30,0.258\n")
-    parsed = reconcile.parse_provider_file("deepgram", path)
-    # 3600 seconds = 60 minutes; the parser must surface 3600,
-    # not 60 (which would happen if it confused units).
-    assert parsed["nova-3"]["units"] == pytest.approx(3600.0, abs=0.1)
-
-
-def test_parse_provider_file_cartesia_json(tmp_path):
-    path = tmp_path / "cartesia.json"
-    path.write_text(
-        json.dumps(
-            [
-                {
-                    "model": "sonic-3",
-                    "characters": 2_500_000,
-                    "credits": 250_000,
-                    "n_requests": 1000,
-                    "cost_usd": 30.0,
-                },
-            ]
-        )
-    )
-    parsed = reconcile.parse_provider_file("cartesia", path)
-    assert parsed["sonic-3"]["units"] == 2_500_000
-
-
-def test_parse_provider_file_cartesia_csv(tmp_path):
-    """Cartesia parser also accepts the canonical CSV shape (not just JSON)."""
-    path = tmp_path / "cartesia.csv"
-    path.write_text("model,characters,n_requests,cost_usd\nsonic-3,2500000,1000,30.0\n")
-    parsed = reconcile.parse_provider_file("cartesia", path)
-    assert parsed["sonic-3"]["units"] == 2_500_000
-    assert parsed["sonic-3"]["cost"] == pytest.approx(30.0, abs=0.01)
-    assert parsed["sonic-3"]["n_requests"] == 1000
-
-
-def test_parse_provider_file_cartesia_csv_multiple_models(tmp_path):
-    """Real Cartesia exports may list sonic-3 + older voice models."""
-    path = tmp_path / "cartesia-multi.csv"
-    path.write_text(
-        "model,characters,n_requests,cost_usd\n"
-        "sonic-3,2500000,1000,30.0\n"
-        "sonic-turbo,800000,400,9.6\n"
-    )
-    parsed = reconcile.parse_provider_file("cartesia", path)
-    assert set(parsed) == {"sonic-3", "sonic-turbo"}
-    assert parsed["sonic-3"]["units"] == 2_500_000
-    assert parsed["sonic-turbo"]["units"] == 800_000
-    assert parsed["sonic-turbo"]["cost"] == pytest.approx(9.6, abs=0.01)
-
-
-def test_parse_provider_file_cartesia_csv_handles_missing_columns(tmp_path):
-    """Sparse CSV (no n_requests, no cost_usd) returns zeros, not KeyError."""
-    path = tmp_path / "cartesia-sparse.csv"
-    path.write_text("model,characters\nsonic-3,500000\n")
-    parsed = reconcile.parse_provider_file("cartesia", path)
-    assert parsed["sonic-3"]["units"] == 500_000
-    assert parsed["sonic-3"]["cost"] == 0.0
-    assert parsed["sonic-3"]["n_requests"] == 0.0
-
-
-def test_parse_provider_file_cartesia_units_are_characters(tmp_path):
-    """Cartesia bills via credits but our canonical column is characters."""
-    path = tmp_path / "cartesia-units.csv"
-    # Note: characters and credits are intentionally different to
-    # confirm the parser reads the right column.
-    path.write_text(
-        "model,characters,credits,n_requests,cost_usd\n"
-        "sonic-3,2500000,250000,1000,30.0\n"
-    )
-    parsed = reconcile.parse_provider_file("cartesia", path)
-    assert parsed["sonic-3"]["units"] == 2_500_000, (
-        "Cartesia parser must read `characters`, not `credits`."
-    )
+@pytest.mark.parametrize(
+    ("provider", "filename", "content", "expected"),
+    [
+        pytest.param(
+            "openai",
+            "openai.csv",
+            "model,input_tokens,output_tokens,n_requests,cost_usd\n"
+            "gpt-4o-mini,1000000,500000,500,0.225\n",
+            # units = input + output
+            {"gpt-4o-mini": {"units": 1_500_000, "cost": 0.225}},
+            id="openai-csv",
+        ),
+        pytest.param(
+            "openai",
+            "openai.csv",
+            "model,input_tokens,output_tokens,n_requests,cost_usd\n"
+            "gpt-4o-mini,1000000,500000,500,0.225\n"
+            "gpt-4o,200000,100000,200,0.900\n"
+            "gpt-4-turbo,50000,25000,80,1.200\n",
+            {
+                "gpt-4o-mini": {"units": 1_500_000},
+                "gpt-4o": {"units": 300_000, "n_requests": 200},
+                "gpt-4-turbo": {"units": 75_000, "cost": 1.200},
+            },
+            id="openai-csv-multiple-models",
+        ),
+        pytest.param(
+            "openai",
+            "openai.csv",
+            # n_requests and cost_usd absent: the `row.get(..., 0) or 0`
+            # fallback must yield zero, not KeyError.
+            "model,input_tokens,output_tokens\ngpt-4o-mini,1000,500\n",
+            {"gpt-4o-mini": {"units": 1500, "cost": 0.0, "n_requests": 0.0}},
+            id="openai-csv-missing-columns",
+        ),
+        pytest.param(
+            "openai",
+            "openai.csv",
+            # An empty cost cell must not crash float().
+            "model,input_tokens,output_tokens,n_requests,cost_usd\n"
+            "gpt-4o-mini,1000,500,1,\n",
+            {"gpt-4o-mini": {"cost": 0.0}},
+            id="openai-csv-empty-cost-cell",
+        ),
+        pytest.param(
+            "deepgram",
+            "deepgram.csv",
+            # Units are audio_seconds, never converted to minutes.
+            "model,audio_seconds,n_requests,cost_usd\nnova-3,180000.0,1500,8.700\n",
+            {"nova-3": {"units": 180000.0, "cost": 8.700}},
+            id="deepgram-csv",
+        ),
+        pytest.param(
+            "deepgram",
+            "deepgram.csv",
+            "model,audio_seconds,n_requests,cost_usd\n"
+            "nova-3,180000.0,1500,8.700\n"
+            "nova-2,90000.0,800,4.350\n"
+            "flux-general,30000.0,250,1.450\n",
+            {
+                "nova-3": {"units": 180000.0},
+                "nova-2": {"units": 90000.0, "n_requests": 800},
+                "flux-general": {"units": 30000.0, "cost": 1.450},
+            },
+            id="deepgram-csv-multiple-models",
+        ),
+        pytest.param(
+            "deepgram",
+            "deepgram.csv",
+            "model,audio_seconds\nnova-3,12000.0\n",
+            {"nova-3": {"units": 12000.0, "cost": 0.0, "n_requests": 0.0}},
+            id="deepgram-csv-missing-columns",
+        ),
+        pytest.param(
+            "cartesia",
+            "cartesia.json",
+            _CARTESIA_JSON,
+            {"sonic-3": {"units": 2_500_000}},
+            id="cartesia-json",
+        ),
+        pytest.param(
+            "cartesia",
+            "cartesia.csv",
+            # characters and credits differ on purpose: units must come
+            # from `characters`, not `credits`.
+            "model,characters,credits,n_requests,cost_usd\n"
+            "sonic-3,2500000,250000,1000,30.0\n",
+            {"sonic-3": {"units": 2_500_000, "cost": 30.0, "n_requests": 1000}},
+            id="cartesia-csv",
+        ),
+        pytest.param(
+            "cartesia",
+            "cartesia.csv",
+            "model,characters,n_requests,cost_usd\n"
+            "sonic-3,2500000,1000,30.0\n"
+            "sonic-turbo,800000,400,9.6\n",
+            {
+                "sonic-3": {"units": 2_500_000},
+                "sonic-turbo": {"units": 800_000, "cost": 9.6},
+            },
+            id="cartesia-csv-multiple-models",
+        ),
+        pytest.param(
+            "cartesia",
+            "cartesia.csv",
+            "model,characters\nsonic-3,500000\n",
+            {"sonic-3": {"units": 500_000, "cost": 0.0, "n_requests": 0.0}},
+            id="cartesia-csv-missing-columns",
+        ),
+    ],
+)
+def test_parse_provider_file(tmp_path, provider, filename, content, expected):
+    path = tmp_path / filename
+    path.write_text(content)
+    _assert_parsed(reconcile.parse_provider_file(provider, path), expected)
 
 
 # Sample fixtures committed under tests/fixtures/usage_exports/
 # anchor the parser against committed reference data rather than
 # inline strings. This double-checks the canonical schema against
 # real files (matters when a future docs change drifts the schema
-# and the parser does not).
+# and the parser does not). Updating a fixture requires updating these.
 _FIXTURES_USAGE_DIR = Path(__file__).parent.parent / "fixtures" / "usage_exports"
 
 
-def test_parse_provider_file_loads_committed_openai_sample():
-    """The committed openai-sample.csv parses cleanly to known values."""
+@pytest.mark.parametrize(
+    ("provider", "expected"),
+    [
+        (
+            "openai",
+            {
+                "gpt-4o-mini": {"units": 3_750_000, "cost": 0.5625},  # 2.5M + 1.25M
+                "gpt-4o": {"units": 750_000},
+                "gpt-4-turbo": {"n_requests": 250},
+            },
+        ),
+        (
+            "deepgram",
+            {
+                "nova-3": {"units": 180_000.0},
+                "nova-2": {"units": 90_000.0},
+                "flux-general": {"cost": 1.450},
+            },
+        ),
+        (
+            "cartesia",
+            {
+                "sonic-3": {"units": 2_500_000},
+                "sonic-turbo": {"units": 800_000, "cost": 9.600},
+            },
+        ),
+    ],
+)
+def test_parse_provider_file_loads_committed_sample(provider, expected):
     parsed = reconcile.parse_provider_file(
-        "openai", _FIXTURES_USAGE_DIR / "openai-sample.csv"
+        provider, _FIXTURES_USAGE_DIR / f"{provider}-sample.csv"
     )
-    # Three models documented in the fixture README.
-    assert set(parsed) == {"gpt-4o-mini", "gpt-4o", "gpt-4-turbo"}
-    # Pinned values; updating the fixture requires updating these.
-    assert parsed["gpt-4o-mini"]["units"] == 3_750_000  # 2.5M + 1.25M
-    assert parsed["gpt-4o-mini"]["cost"] == pytest.approx(0.5625, abs=0.0001)
-    assert parsed["gpt-4o"]["units"] == 750_000
-    assert parsed["gpt-4-turbo"]["n_requests"] == 250
-
-
-def test_parse_provider_file_loads_committed_deepgram_sample():
-    """The committed deepgram-sample.csv parses cleanly to known values."""
-    parsed = reconcile.parse_provider_file(
-        "deepgram", _FIXTURES_USAGE_DIR / "deepgram-sample.csv"
-    )
-    assert set(parsed) == {"nova-3", "nova-2", "flux-general"}
-    assert parsed["nova-3"]["units"] == pytest.approx(180_000.0, abs=0.1)
-    assert parsed["nova-2"]["units"] == pytest.approx(90_000.0, abs=0.1)
-    assert parsed["flux-general"]["cost"] == pytest.approx(1.450, abs=0.001)
-
-
-def test_parse_provider_file_loads_committed_cartesia_sample():
-    """The committed cartesia-sample.csv parses cleanly to known values."""
-    parsed = reconcile.parse_provider_file(
-        "cartesia", _FIXTURES_USAGE_DIR / "cartesia-sample.csv"
-    )
-    assert set(parsed) == {"sonic-3", "sonic-turbo"}
-    assert parsed["sonic-3"]["units"] == 2_500_000
-    assert parsed["sonic-turbo"]["units"] == 800_000
-    assert parsed["sonic-turbo"]["cost"] == pytest.approx(9.600, abs=0.001)
+    _assert_parsed(parsed, expected)
 
 
 def test_parse_provider_file_unknown_provider_raises(tmp_path):
@@ -804,17 +782,6 @@ def test_format_text_unknown_provider_falls_back_to_units_label():
     ]
     out = reconcile.format_text(lines, "anthropic")
     assert "VG units" in out  # generic fallback label
-
-
-def test_parse_provider_file_handles_empty_cost_string(tmp_path):
-    """An empty `cost_usd` cell should not crash float() — guarded by `or 0`."""
-    path = tmp_path / "openai.csv"
-    path.write_text(
-        "model,input_tokens,output_tokens,n_requests,cost_usd\n"
-        "gpt-4o-mini,1000,500,1,\n"  # empty cost cell
-    )
-    parsed = reconcile.parse_provider_file("openai", path)
-    assert parsed["gpt-4o-mini"]["cost"] == 0.0
 
 
 def test_format_csv_writes_diff_rows():
