@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import inspect
+import itertools
 from typing import Any
 
 import pytest
@@ -60,12 +61,14 @@ class _Session:
 
 class _Event:
     new_state = None
+    old_state = None
     created_at = 0.0
 
 
 class _StateChanged(_Event):
-    def __init__(self, new_state: str) -> None:
+    def __init__(self, new_state: str, old_state: str | None = None) -> None:
         self.new_state = new_state
+        self.old_state = old_state
 
 
 @pytest.fixture(autouse=True)
@@ -257,7 +260,21 @@ async def test_no_event_while_speech_continues(tmp_path) -> None:
     )
 
 
-async def test_attach_binds_the_activity_clock(tmp_path) -> None:
+@pytest.fixture
+def ticking_clock(monkeypatch):
+    """A clock that advances on every read.
+
+    "Pinned" means the probe stopped following the clock. With the real clock
+    two reads can land in the same millisecond, so a probe still tracking now
+    passes an equality check by luck.
+    """
+    ticks = itertools.count(1_000)
+    monkeypatch.setattr(
+        attach_mod._SpeechActivity, "_now_ms", staticmethod(lambda: next(ticks))
+    )
+
+
+async def test_attach_binds_the_activity_clock(tmp_path, ticking_clock) -> None:
     """The four speech events have to actually drive the clock."""
     sink = _sink(tmp_path)
     session = _Session()
@@ -278,7 +295,7 @@ async def test_attach_binds_the_activity_clock(tmp_path) -> None:
     assert activity.probe("x") == pinned
 
 
-async def test_the_16_listening_transition_ends_speech(tmp_path) -> None:
+async def test_the_16_listening_transition_ends_speech(tmp_path, ticking_clock) -> None:
     """On a build with no discrete stop event, ``listening`` is the only signal.
 
     Without this the clock would stay "speaking" for the rest of the call and
@@ -290,7 +307,8 @@ async def test_the_16_listening_transition_ends_speech(tmp_path) -> None:
     activity = session._vg_activity
 
     session.emit("user_state_changed", _StateChanged("speaking"))
-    session.emit("user_state_changed", _StateChanged("listening"))
+    # LiveKit carries the origin; the stop is keyed on old_state == "speaking".
+    session.emit("user_state_changed", _StateChanged("listening", "speaking"))
 
     pinned = activity.probe("x")
     assert activity.probe("x") == pinned, (
