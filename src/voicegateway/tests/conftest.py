@@ -1,8 +1,10 @@
 """Shared pytest fixtures."""
 
+import asyncio
 import os
 import time
 import uuid
+from collections.abc import Callable
 
 import pytest
 import yaml
@@ -16,6 +18,21 @@ from voicegateway.models.request_model import RequestRecord
 # collisions between tests that never touched each other. Snapshot it per test
 # so a leak stops at the test that caused it.
 _LEAKY_ENV_VARS = ("VOICEGW_DB_PATH",)
+
+
+async def wait_until(
+    condition: Callable[[], bool], *, timeout: float = 5.0, interval: float = 0.005
+) -> None:
+    """Poll ``condition`` until it holds; fail after ``timeout`` seconds.
+
+    Replaces fixed sleeps: returns as soon as the condition is true on a quiet
+    machine, and still waits long enough on a busy one.
+    """
+    deadline = time.monotonic() + timeout
+    while not condition():
+        if time.monotonic() > deadline:
+            raise AssertionError(f"condition not met within {timeout}s")
+        await asyncio.sleep(interval)
 
 
 @pytest.fixture(autouse=True)

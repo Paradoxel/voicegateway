@@ -29,6 +29,7 @@ from voicegateway.middleware.dead_air_detector_middleware import (
 )
 from voicegateway.services.sinks import LocalSqliteSink
 from voicegateway.services.storage_service import StorageService
+from voicegateway.tests.conftest import wait_until
 
 attach_mod = importlib.import_module("voicegateway.inference.session.attach")
 
@@ -230,8 +231,15 @@ async def test_no_event_while_speech_continues(tmp_path) -> None:
     async def _on_event(event: DeadAirEvent) -> None:
         await sink.log_dead_air([event])
 
+    polls = 0
+
+    def _probe(session_id: str) -> int | None:
+        nonlocal polls
+        polls += 1
+        return activity.probe(session_id)
+
     fast = DeadAirDetector(
-        activity_probe=activity.probe,
+        activity_probe=_probe,
         on_event=_on_event,
         threshold_seconds=0.05,
         poll_interval_seconds=0.01,
@@ -239,7 +247,9 @@ async def test_no_event_while_speech_continues(tmp_path) -> None:
 
     activity.caller_started()  # and never stops
     await fast.start("sess-talking")
-    await asyncio.sleep(0.25)
+    # Count polls, not time: 20 polls span at least 200ms, four times the
+    # threshold, however slow the machine.
+    await wait_until(lambda: polls >= 20)
     await fast.stop("sess-talking")
 
     assert await _stored_events(sink, "sess-talking") == [], (

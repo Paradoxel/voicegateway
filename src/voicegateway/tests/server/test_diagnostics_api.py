@@ -75,11 +75,14 @@ class _FakeProbes:
         return {"agents": []}
 
 
-class _SlowProbes(_FakeProbes):
-    """Probes whose agents check blocks long enough to test 409 detection."""
+class _GatedProbes(_FakeProbes):
+    """Probes whose agents check blocks until the test sets ``release``."""
+
+    def __init__(self) -> None:
+        self.release = asyncio.Event()
 
     async def agents(self, creds: Any) -> dict[str, Any]:
-        await asyncio.sleep(0.3)
+        await self.release.wait()
         return {"agents": []}
 
 
@@ -210,7 +213,8 @@ async def test_run_conflict_when_active(client, monkeypatch):
     from voicegateway.server.api.dashboard import diagnostics
 
     monkeypatch.setattr(diagnostics, "_resolve_creds", lambda: _FAKE_CREDS)
-    monkeypatch.setattr(diagnostics, "_make_probes", lambda _store: _SlowProbes())
+    probes = _GatedProbes()
+    monkeypatch.setattr(diagnostics, "_make_probes", lambda _store: probes)
 
     resp1 = await client.post(
         "/api/diagnostics/runs", json={"checks": ["agents"], "config": {}}
@@ -218,12 +222,16 @@ async def test_run_conflict_when_active(client, monkeypatch):
     assert resp1.status_code == 200
     run_id = resp1.json()["run_id"]
 
-    # The run should still be queued or running, so the second POST must 409.
-    resp2 = await client.post(
-        "/api/diagnostics/runs", json={"checks": ["agents"], "config": {}}
-    )
-    assert resp2.status_code == 409
-    assert "already in progress" in resp2.json()["detail"]
+    try:
+        # The agents probe is held open, so the run is still queued or running
+        # and the second POST must 409.
+        resp2 = await client.post(
+            "/api/diagnostics/runs", json={"checks": ["agents"], "config": {}}
+        )
+        assert resp2.status_code == 409
+        assert "already in progress" in resp2.json()["detail"]
+    finally:
+        probes.release.set()
 
     # Clean up: wait for the first run to finish.
     await _poll_until_done(client, run_id)
