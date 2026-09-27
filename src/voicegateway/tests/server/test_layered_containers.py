@@ -1,43 +1,56 @@
-"""The DI containers are layered, and a missing layer input fails at startup."""
+"""The DI containers are layered, rooted at the Gateway, and fail fast."""
 
 from __future__ import annotations
 
 import pytest
 from dependency_injector import containers, errors, providers
 
-from voicegateway.core.config import GatewayConfig
 from voicegateway.core.container import (
     Container,
     InfraContainer,
     ServicesContainer,
 )
-from voicegateway.core.database import Database
+from voicegateway.core.gateway import Gateway
 
 
-def test_config_override_reaches_the_infra_layer(tmp_path) -> None:
-    cfg = GatewayConfig(cost_tracking={"db_path": str(tmp_path / "layer.db")})
+@pytest.fixture
+def gateway(monkeypatch, tmp_path) -> Gateway:
+    monkeypatch.setenv("VOICEGW_DB_PATH", str(tmp_path / "layer.db"))
+    return Gateway(require_config=False)
+
+
+def _container(gw: Gateway) -> Container:
     container = Container()
-    container.core.config.override(providers.Object(cfg))
+    container.core.gateway.override(providers.Object(gw))
     container.check_dependencies()
+    return container
 
-    assert container.infra.database().config is cfg
+
+def test_config_and_storage_resolve_through_the_gateway(gateway) -> None:
+    container = _container(gateway)
+
+    assert container.core.config() is gateway.config
+    assert container.core.storage() is gateway.storage
 
 
-def test_services_resolve_through_the_infra_layer(tmp_path) -> None:
-    container = Container()
-    container.infra.database.override(
-        providers.Object(
-            Database(GatewayConfig(cost_tracking={"db_path": str(tmp_path / "s.db")}))
-        )
-    )
-    service = container.services.api_key_service()
+def test_infra_reuses_the_storage_engine(gateway) -> None:
+    assert _container(gateway).infra.database() is gateway.storage.database
 
-    assert service is not container.services.api_key_service()  # Factory
+
+def test_services_resolve_through_the_infra_layer(gateway) -> None:
+    container = _container(gateway)
+
+    assert container.services.api_key_service() is not container.services.api_key_service()
+
+
+def test_a_container_without_a_gateway_fails_the_startup_check() -> None:
+    with pytest.raises(errors.Error, match="gateway"):
+        Container().check_dependencies()
 
 
 def test_a_layer_without_its_input_fails_the_startup_check() -> None:
     class Broken(containers.DeclarativeContainer):
-        infra = providers.Container(InfraContainer)  # no config passed
+        infra = providers.Container(InfraContainer)  # no config or storage passed
         services = providers.Container(ServicesContainer, infra=infra)
 
     with pytest.raises(errors.Error, match="config"):
