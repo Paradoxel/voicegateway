@@ -5,7 +5,7 @@ it, declared as a dependency rather than imported:
 
 - :class:`CoreContainer`: the process's ``Gateway`` and what it loaded.
 - :class:`InfraContainer`: connections to the outside world (the database).
-- :class:`ServicesContainer`: repositories and the services built on them.
+- :class:`ServicesContainer`: services over the function-style repositories.
 
 :class:`Container` composes them. It is the only class callers touch, and
 :meth:`Container.check_dependencies` fails fast at startup when a layer is
@@ -15,13 +15,15 @@ missing an input instead of on the first request that needs it.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
 
 from dependency_injector import containers, providers
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from voicegateway.core.config import GatewayConfig
 from voicegateway.core.database import Database
 from voicegateway.core.gateway import Gateway
-from voicegateway.repository.api_key_repository import ApiKeyRepository
 from voicegateway.services.api_key_service import ApiKeyService
 from voicegateway.services.storage_service import StorageService
 
@@ -36,6 +38,18 @@ def _database(storage: StorageService | None, config: GatewayConfig) -> Database
     bug this replaced.
     """
     return storage.database if storage is not None else Database(config)
+
+
+def _session_factory(
+    storage: StorageService | None, database: Database
+) -> Callable[[], AbstractAsyncContextManager[AsyncSession]]:
+    """``StorageService.session`` when storage is on, else the bare engine's.
+
+    The storage facade runs migrations before its first session, so services
+    never meet a fresh database without its tables. The bare engine is only
+    reached when cost tracking is off and there is no facade.
+    """
+    return storage.session if storage is not None else database.session
 
 
 class CoreContainer(containers.DeclarativeContainer):
@@ -64,19 +78,19 @@ class InfraContainer(containers.DeclarativeContainer):
 
     database = providers.Singleton(_database, storage=storage, config=config)
 
+    session_factory = providers.Callable(
+        _session_factory, storage=storage, database=database
+    )
+
 
 class ServicesContainer(containers.DeclarativeContainer):
-    """Repositories and the services that own their business rules."""
+    """Services that own business rules over the repository modules."""
 
     infra = providers.DependenciesContainer()
 
-    api_key_repository = providers.Factory(
-        ApiKeyRepository,
-        session_factory=infra.database.provided.session,
-    )
     api_key_service = providers.Factory(
         ApiKeyService,
-        repository=api_key_repository,
+        session_factory=infra.session_factory,
     )
 
 
@@ -87,6 +101,9 @@ class Container(containers.DeclarativeContainer):
         modules=[
             "voicegateway.server.api.api_keys",
         ],
+        # A string marker naming a provider that does not exist warns at wire
+        # time instead of failing on the first request that resolves it.
+        warn_unresolved=True,
     )
 
     core = providers.Container(CoreContainer)

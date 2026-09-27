@@ -1,76 +1,36 @@
-"""Service for issuing, verifying and revoking virtual keys."""
+"""Service for issuing, verifying and revoking virtual keys.
+
+A thin session-owning facade over :mod:`voicegateway.repository.api_keys_repository`,
+the single implementation of the ``api_keys`` table. Hashing, prefixes, scope
+normalization and the wildcard refusal all live there, so the ``/v1/api-keys``
+routes, the dashboard, the CLI and request authentication share one code path.
+"""
 
 from __future__ import annotations
 
-import secrets
-from dataclasses import dataclass
-from typing import Final
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
+from typing import TYPE_CHECKING
 
-import bcrypt
+from voicegateway.core.exceptions import NotFoundError
+from voicegateway.repository import api_keys_repository as repo
+from voicegateway.repository.api_keys_repository import (
+    ApiKeyRow,
+    CreatedApiKey,
+    VerifiedKey,
+)
 
-from voicegateway.core.scopes import normalize_scopes
-from voicegateway.models.api_key_model import ApiKey
-from voicegateway.repository.api_key_repository import ApiKeyRepository
-from voicegateway.services.base_service import BaseService
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
-VK_PREFIX: Final[str] = "vk_"
-_VISIBLE_PREFIX_LEN: Final[int] = 8
-_RANDOM_SUFFIX_LEN: Final[int] = 32
-_BCRYPT_COST: Final[int] = 12
-_BASE32_ALPHABET: Final[str] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
-
-
-@dataclass(frozen=True)
-class CreatedKey:
-    """Plaintext shown once on create, row safe to log."""
-
-    plaintext: str
-    row: ApiKey
+SessionFactory = Callable[[], AbstractAsyncContextManager["AsyncSession"]]
 
 
-@dataclass(frozen=True)
-class VerifiedKey:
-    """Result of a successful verify call."""
+class ApiKeyService:
+    """Opens a session per call and delegates to the api-keys repository."""
 
-    id: int
-    tenant_id: str | None
-    name: str
-    project_ids: str | None = None
-
-
-def _generate_plaintext_key() -> str:
-    """Generate a fresh `vk_` + 32 base32 plaintext."""
-    suffix = "".join(
-        secrets.choice(_BASE32_ALPHABET) for _ in range(_RANDOM_SUFFIX_LEN)
-    )
-    return f"{VK_PREFIX}{suffix}"
-
-
-def _visible_prefix(plaintext: str) -> str:
-    """Return the first 8 chars used as the row prefix index."""
-    return plaintext[:_VISIBLE_PREFIX_LEN]
-
-
-def _hash(plaintext: str) -> str:
-    """Bcrypt-hash the plaintext at cost 12."""
-    digest = bcrypt.hashpw(
-        plaintext.encode("utf-8"), bcrypt.gensalt(rounds=_BCRYPT_COST)
-    )
-    return digest.decode("utf-8")
-
-
-def _check(plaintext: str, stored_hash: str) -> bool:
-    """Constant-time bcrypt comparison."""
-    return bcrypt.checkpw(plaintext.encode("utf-8"), stored_hash.encode("utf-8"))
-
-
-class ApiKeyService(BaseService[ApiKey]):
-    """Composes ApiKeyRepository with bcrypt + plaintext semantics."""
-
-    def __init__(self, repository: ApiKeyRepository) -> None:
-        super().__init__(repository)
-        # Re-typed alias for the concrete repo so domain methods get IDE help.
-        self._repository: ApiKeyRepository = repository
+    def __init__(self, session_factory: SessionFactory) -> None:
+        self._session = session_factory
 
     async def create_key(
         self,
@@ -80,62 +40,52 @@ class ApiKeyService(BaseService[ApiKey]):
         tenant_id: str | None = None,
         issued_by: str | None = None,
         project_ids: str | None = None,
-    ) -> CreatedKey:
+    ) -> CreatedApiKey:
         """Mint a new virtual key. The plaintext is returned exactly once.
 
-        ``scopes`` is required and goes through the same
-        :func:`~voicegateway.core.scopes.normalize_scopes` as the
-        function-style repository, so this door and that one refuse exactly
-        the same requests. Before 0.26.0 this path set no scopes at all and
-        the model default (``"*"``) applied, which is VG-SEC-006.
+        Raises ``ValueError`` for an empty name or a refused scope list,
+        including the wildcard (VG-SEC-006).
         """
-        if not name:
-            raise ValueError("name must be non-empty")
-        granted = normalize_scopes(scopes)
-        plaintext = _generate_plaintext_key()
-        row = ApiKey(
-            key_prefix=_visible_prefix(plaintext),
-            key_hash=_hash(plaintext),
-            name=name,
-            scopes=granted,
-            tenant_id=tenant_id,
-            issued_by=issued_by,
-            project_ids=project_ids,
-        )
-        persisted = await self._repository.create(row)
-        return CreatedKey(plaintext=plaintext, row=persisted)
+        async with self._session() as s:
+            return await repo.create_api_key(
+                s,
+                name=name,
+                scopes=scopes,
+                tenant_id=tenant_id,
+                issued_by=issued_by,
+                project_ids=project_ids,
+            )
 
-    async def list_keys(self, *, include_revoked: bool = True) -> list[ApiKey]:
+    async def get_by_id(self, key_id: int) -> ApiKeyRow:
+        """Return one key. Raises :class:`NotFoundError` when missing."""
+        async with self._session() as s:
+            row = await repo.get_by_id(s, key_id)
+        if row is None:
+            raise NotFoundError(detail=f"ApiKey {key_id} not found")
+        return row
+
+    async def list_keys(self, *, include_revoked: bool = True) -> list[ApiKeyRow]:
         """Return all keys, newest first."""
-        return await self._repository.list_keys(include_revoked=include_revoked)
+        async with self._session() as s:
+            return await repo.list_keys(s, include_revoked=include_revoked)
 
     async def verify(self, plaintext: str) -> VerifiedKey | None:
         """Validate a plaintext key against the stored hashes."""
-        if not plaintext.startswith(VK_PREFIX):
-            return None
-        candidates = await self._repository.find_by_prefix(_visible_prefix(plaintext))
-        for row in candidates:
-            if row.revoked_at is not None:
-                continue
-            if _check(plaintext, row.key_hash):
-                assert row.id is not None
-                return VerifiedKey(
-                    id=row.id,
-                    tenant_id=row.tenant_id,
-                    name=row.name,
-                    project_ids=row.project_ids,
-                )
-        return None
+        async with self._session() as s:
+            return await repo.verify(s, plaintext)
 
     async def mark_used(self, key_id: int) -> None:
         """Bump last_used_at on the row. Idempotent."""
-        await self._repository.mark_used(key_id)
+        async with self._session() as s:
+            await repo.mark_used(s, key_id)
 
     async def revoke(self, key_id: int) -> bool:
-        """Soft-revoke. Surfaces 404 if the row is missing, else returns True on transition."""
-        await self._repository.read_by_id(key_id)
-        return await self._repository.revoke(key_id)
+        """Soft-revoke. 404 if the row is missing, else True on the transition."""
+        await self.get_by_id(key_id)
+        async with self._session() as s:
+            return await repo.revoke(s, key_id)
 
-    async def list_stale(self, *, stale_after_days: int) -> list[ApiKey]:
+    async def list_stale(self, *, stale_after_days: int) -> list[ApiKeyRow]:
         """Non-revoked keys past the staleness cutoff."""
-        return await self._repository.list_stale(stale_after_days=stale_after_days)
+        async with self._session() as s:
+            return await repo.list_stale(s, stale_after_days=stale_after_days)
