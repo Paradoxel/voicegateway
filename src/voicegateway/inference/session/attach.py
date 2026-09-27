@@ -1413,7 +1413,7 @@ def _attach_livekit(
             warm = getattr(sink, "_storage", None)
             if warm is not None:
                 try:
-                    await warm._ensure_initialized()
+                    await warm.initialize()
                 except Exception:  # noqa: BLE001 - dead air is never load-bearing
                     logger.debug("attach: storage warm-up failed", exc_info=True)
             await dead_air_detector.start(session_id)

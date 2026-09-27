@@ -143,8 +143,7 @@ class RetentionWorker:
 
         per_project_deletes: dict[str, int] = {}
         now = datetime.now(UTC)
-        await self._storage._ensure_initialized()
-        async with self._storage._conn.session() as db:
+        async with self._storage.session() as db:
             for project_id, retention_days in projects:
                 if retention_days < 1:
                     logger.warning(

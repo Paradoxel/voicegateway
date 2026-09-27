@@ -55,8 +55,7 @@ async def heartbeat(request: Request) -> dict[str, str]:
         presence = {**presence, "tenant_id": tenant_id}
 
     if gateway.storage is not None:
-        await gateway.storage._ensure_initialized()
-        async with gateway.storage._conn.session() as db:
+        async with gateway.storage.session() as db:
             await workers_repository.upsert_heartbeat(db, presence)
         # The upsert is already committed above, so a publish failure must not
         # change the 202: swallow and log it rather than fail the heartbeat.
@@ -84,7 +83,7 @@ async def _publish_fleet_update(gateway: Any, presence: dict[str, Any]) -> None:
     from voicegateway.server.api.openorca.routes import bus
 
     tenant_id = presence.get("tenant_id")
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         rows = await workers_repository.read_roster(
             db,
             tenant_id=tenant_id,
@@ -126,8 +125,7 @@ async def list_agents(
 
     workers: list[dict[str, Any]] = []
     if gateway.storage is not None:
-        await gateway.storage._ensure_initialized()
-        async with gateway.storage._conn.session() as db:
+        async with gateway.storage.session() as db:
             roster = await workers_repository.read_roster(
                 db,
                 tenant_id=tenant_id,

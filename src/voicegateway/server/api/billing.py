@@ -496,9 +496,8 @@ async def rate_card_gaps(
     """
     if gateway.storage is None:
         return {"gaps": [], "unpriced_source_version": None}
-    await gateway.storage._ensure_initialized()
     since_ts = parse_iso_date(since, end_of_day=False) if since else None
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         gaps = await request_log_repository.read_pricing_gaps(
             db, tenant=tenant, project=project, since_ts=since_ts
         )
@@ -525,9 +524,8 @@ async def rate_card_models(
     """
     if gateway.storage is None:
         return {"models": []}
-    await gateway.storage._ensure_initialized()
     card = await _effective_card(gateway)
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         used = await request_log_repository.read_models_in_use(db)
     out: list[dict[str, Any]] = []
     for m in used:

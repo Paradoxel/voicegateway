@@ -51,8 +51,7 @@ async def list_api_keys_endpoint(
     """
     if gateway.storage is None:
         return {"keys": []}
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         rows = await api_keys.list_keys(db, include_revoked=include_revoked)
     return {"keys": [dataclasses.asdict(r) for r in rows]}
 
@@ -100,8 +99,7 @@ async def create_api_key_endpoint(
         )
     if gateway.storage is None:
         raise HTTPException(status_code=503, detail="Storage backend not configured")
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         try:
             created = await api_keys.create_api_key(
                 db,
@@ -127,8 +125,7 @@ async def revoke_api_key_endpoint(
     """Soft-revoke a virtual key (OQ5: keeps the row for audit)."""
     if gateway.storage is None:
         raise HTTPException(status_code=503, detail="Storage backend not configured")
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
+    async with gateway.storage.session() as db:
         ok = await api_keys.revoke(db, key_id)
         if not ok:
             raise HTTPException(

@@ -62,8 +62,7 @@ def _build_workers(gateway: Gateway) -> list[Any]:
 
         async def _retention_provider() -> list[tuple[str, int]]:
             days = retention_cfg.default_days
-            await storage._ensure_initialized()
-            async with storage._conn.session() as db:
+            async with storage.session() as db:
                 result = await db.execute(
                     text(
                         "SELECT project FROM requests WHERE project IS NOT NULL "
