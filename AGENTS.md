@@ -63,7 +63,7 @@ docker compose --profile local up -d     # + Ollama
 
 **Dashboard UI (`src/dashboard/`):** two SPAs plus branding assets. `frontend/` is the React/TypeScript/Vite dashboard (Recharts, Neo-Brutalism aesthetic); `console/` is a smaller SPA built on `@openorca-ui/react`. `api/` now holds only `static/branding/` images and no Python. The combined server serves the built SPA at `/` (see `server/static.py`).
 
-**Docs:** The Mintlify documentation site (<https://docs.voicegateway.dev>) lives in this repo under `docs/` (config in `docs/docs.json`, pages as `.md`, shared brand assets under `docs/assets/`). Docs version with the code: change the docs in the same PR as any behavior or API change. Mintlify deploys `docs/` from this repo's default branch.
+**Docs:** The documentation site (<https://docs.voicegateway.dev>) is a Fumadocs app in `site/docs/` (Next.js static export served from Cloudflare via `site/docs/wrangler.jsonc`). Pages are MDX in `site/docs/content/docs/`, ordered by `meta.json`; brand assets in `site/docs/public/assets/`. The shared palette is `site/theme.css`. Keep it small: six pages while the project is early. Voice: short declarative sentences, sentence-case headings, no em dashes (CI fails on one). Docs version with the code: change them in the same PR as any behavior or API change. Contributor guides live in `contributing/`.
 
 **Marketing site:** Only the Next.js landing page at <https://voicegateway.dev> lives in the separate [`mahimailabs/voicegateway-web`](https://github.com/mahimailabs/voicegateway-web) repo (deployed on Vercel). The engine repo has no Vercel connection.
 

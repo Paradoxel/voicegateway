@@ -1,0 +1,15 @@
+// docs.voicegateway.dev: a static export (`npm run build` writes ./out) served
+// from Workers static assets, the same setup as prices.mahimai.ca. Nothing runs
+// server-side; public/_redirects sends "/" to "/docs".
+{
+  "name": "voicegateway-docs",
+  "compatibility_date": "2026-09-27",
+  "assets": {
+    "directory": "./out",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [{ "pattern": "docs.voicegateway.dev", "custom_domain": true }],
+  // PR builds run `wrangler preview`, which requires this block; empty keeps the top-level settings
+  "previews": {}
+}

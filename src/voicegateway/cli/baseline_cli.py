@@ -168,6 +168,8 @@ def check(
     * 0 every compared metric is within tolerance
     * 1 at least one metric drifted
     * 2 nothing drifted, but at least one metric could not be compared
+    * 3 the baseline and the window came from different sources, so nothing
+      was compared
     """
     try:
         pinned = json.loads(baseline.read_text())

@@ -1,0 +1,40 @@
+/*
+ * The VoiceGateway palette, shared by site/web (voicegateway.dev) and
+ * site/docs (docs.voicegateway.dev). It is the mahimai.ca palette, the same one
+ * prices.mahimai.ca uses: signal on black.
+ *
+ * One accent, lavender, and it is a signal only: the primary action, links, the
+ * active item, focus. If two lavender things share a viewport outside a chart,
+ * one of them is wrong. Dark is the default; light deepens the accent to keep
+ * 4.5:1 contrast. Both apps switch themes with a `.dark` class on <html>.
+ */
+:root {
+  --vg-bg: #fcfcfc;
+  --vg-surface: #f2f2f3;
+  --vg-popover: #fcfcfc;
+  --vg-line: #e3e3e6;
+  --vg-line-strong: #c9c9ce;
+  --vg-ink: #0a0a0a;
+  --vg-prose: #26262b;
+  --vg-muted: #55555c;
+  --vg-accent: #6f3fb0;
+  --vg-accent-soft: #e9e3f3;
+  --vg-good: #4d6b2a;
+  --vg-bad: #a4483b;
+  --vg-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark {
+  --vg-bg: #0a0a0a;
+  --vg-surface: #171717;
+  --vg-popover: #111111;
+  --vg-line: #262626;
+  --vg-line-strong: #444444;
+  --vg-ink: #fafafa;
+  --vg-prose: #cecece;
+  --vg-muted: #a3a3a3;
+  --vg-accent: #cba6f7;
+  --vg-accent-soft: #1f1a28;
+  --vg-good: #9ab175;
+  --vg-bad: #d08a7f;
+}

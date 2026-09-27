@@ -1,0 +1,83 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+@import '../../theme.css';
+
+/*
+ * Tokens come from ../../theme.css, shared with site/web. This file only maps
+ * Fumadocs' variables onto them and themes the browser surfaces.
+ */
+@theme inline {
+  --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+:root,
+.dark {
+  --color-fd-background: var(--vg-bg);
+  --color-fd-foreground: var(--vg-ink);
+  --color-fd-muted: var(--vg-surface);
+  --color-fd-muted-foreground: var(--vg-muted);
+  --color-fd-popover: var(--vg-popover);
+  --color-fd-popover-foreground: var(--vg-ink);
+  --color-fd-card: var(--vg-surface);
+  --color-fd-card-foreground: var(--vg-ink);
+  --color-fd-border: var(--vg-line);
+  --color-fd-primary: var(--vg-accent);
+  --color-fd-primary-foreground: var(--vg-bg);
+  --color-fd-secondary: var(--vg-surface);
+  --color-fd-secondary-foreground: var(--vg-ink);
+  --color-fd-accent: var(--vg-accent-soft);
+  --color-fd-accent-foreground: var(--vg-ink);
+  --color-fd-ring: var(--vg-accent);
+}
+
+.dark #nd-sidebar {
+  --color-fd-muted: var(--vg-surface);
+  --color-fd-secondary: #1c1c1c;
+  --color-fd-muted-foreground: var(--vg-muted);
+}
+
+html {
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--color-fd-border) transparent;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-fd-primary) 30%, transparent);
+  color: var(--color-fd-foreground);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-fd-ring);
+  outline-offset: 2px;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.prose a {
+  text-decoration-color: color-mix(in srgb, var(--color-fd-primary) 40%, transparent);
+  text-underline-offset: 3px;
+}
+
+.prose a:hover {
+  text-decoration-color: var(--color-fd-primary);
+}
+
+/* Numbers are measurements here: every column lines up. */
+code,
+pre,
+table {
+  font-variant-numeric: tabular-nums;
+}

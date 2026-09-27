@@ -9,8 +9,7 @@
 #
 # Requires v0.10.0+ to be published (the :0.10 channel tag is created by the
 # release workflow). The agent SDK buffers and retries during the few-second
-# container swap, so updates are effectively seamless for your agents. See
-# https://docs.voicegateway.dev/deployment/auto-update for the full model.
+# container swap, so updates are effectively seamless for your agents.
 
 services:
   collector:
