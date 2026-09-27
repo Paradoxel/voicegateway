@@ -1,0 +1,58 @@
+name: Site
+
+# site/docs (docs.voicegateway.dev) and site/web (voicegateway.dev). ci.yml only
+# triggers on src/voicegateway/** and friends, so without this a site-only PR had
+# no gate: broken MDX, a type error or a bad import would merge clean and fail
+# the deploy.
+
+on:
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'collector.sh'
+      - 'install.sh'
+      - '.github/workflows/site.yml'
+
+# Build-only: the jobs read the repo and write nothing back.
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    name: docs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site/docs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/docs/package-lock.json
+      # House voice: colons and commas, never an em dash.
+      - name: No em dashes
+        run: '! grep -rn "—" content/'
+      - run: npm ci
+      - run: npm run build
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/web/package-lock.json
+      - name: No em dashes
+        run: '! grep -rn "—" src/'
+      - run: npm ci
+      - run: npm run check
+      # prebuild copies the repo-root collector.sh and install.sh into public/.
+      - run: npm run build

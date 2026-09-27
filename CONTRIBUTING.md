@@ -64,11 +64,12 @@ npm run dev     # http://localhost:3000/docs
 npm run build   # the static export in site/docs/out, the same command CI runs
 ```
 
-`.github/workflows/docs.yml` builds the site and fails on any em dash in the
+`.github/workflows/site.yml` builds the site and fails on any em dash in the
 pages; the voice is short sentences, colons and commas.
 
-Only the Next.js landing page at <https://voicegateway.dev> lives elsewhere, in
-[`mahimailabs/voicegateway-web`](https://github.com/mahimailabs/voicegateway-web).
+The landing page at <https://voicegateway.dev> lives here too, in `site/web/`
+(Astro on Cloudflare Workers); see `site/web/README.md`. Both sites share the
+palette in `site/theme.css`, and `.github/workflows/site.yml` builds both.
 This repository has no Vercel connection.
 
 ## Project layout (quick orientation)
@@ -105,7 +106,8 @@ alembic/               # migration environment and versions. Root, not under
 alembic.ini            # src/: pyproject force-includes it into the wheel.
 site/docs/             # the Fumadocs site (docs.voicegateway.dev): MDX pages in
                        # content/docs/, brand assets in public/assets/
-site/theme.css         # the shared palette
+site/web/              # the landing page (voicegateway.dev), Astro on Workers
+site/theme.css         # the palette both sites share
 contributing/          # contributor guides: setup, tests, style, providers
 specs/                 # internal design specs, not published
 examples/              # runnable files that docs/examples/*.md link to by
