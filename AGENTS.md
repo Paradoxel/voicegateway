@@ -49,7 +49,6 @@ docker compose --profile local up -d     # + Ollama
 - `config.py`: YAML parser with `${ENV_VAR}` substitution
 - `container.py`, `app_wiring.py`: dependency-injector and SQLAlchemy wiring for the FastAPI app
 - `provider_names.py`: canonical provider ids, resolved against the `voice-prices` catalog
-- `model_resolution.py`: parses `provider/model` strings
 
 **Accounting and billing:** `accounting/` holds versioned, strict wire contracts (decimal-string money) and `AccountingOutbox`, a restart-safe store-and-forward queue to a collector's `/v1/accounting/usage`. `billing/` holds the rate card, rating, and margin reconciliation.
 

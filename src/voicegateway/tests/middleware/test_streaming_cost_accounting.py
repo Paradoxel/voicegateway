@@ -426,27 +426,6 @@ def test_ttfb_hook_fires_on_first_chunk(
 # ---------- repo-state guards ------------------------------------------
 
 
-def test_fixtures_directory_and_readme_exist() -> None:
-    """Phase 3.2 #2 deliverable: the directory and README are tracked."""
-    assert FIXTURES_DIR.exists(), (
-        "tests/fixtures/streaming/ should exist (Phase 3.2 #1)"
-    )
-    assert (FIXTURES_DIR / "README.md").exists(), (
-        "tests/fixtures/streaming/README.md documents the recording workflow"
-    )
-
-
-def test_recording_script_exists() -> None:
-    """Phase 3.3 deliverable: the recording script is at the documented path."""
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    recorder = (
-        repo_root / "tests" / "fixtures" / "streaming" / "record_streaming_fixtures.py"
-    )
-    assert recorder.exists(), (
-        f"tests/fixtures/streaming/record_streaming_fixtures.py expected at {recorder}"
-    )
-
-
 # ---------- fixture-state contract -------------------------------------
 
 

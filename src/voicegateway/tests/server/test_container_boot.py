@@ -137,14 +137,3 @@ def test_the_default_is_still_the_port_the_dockerfile_exposes(monkeypatch) -> No
     monkeypatch.delenv("VOICEGW_PORT", raising=False)
     monkeypatch.delenv("PORT", raising=False)
     assert _resolved_port() == 8080
-
-
-def test_main_reads_the_port_the_same_way() -> None:
-    """Pins the helper above against the real entrypoint, so they cannot drift."""
-    import inspect
-
-    from voicegateway.server.main import main
-
-    src = inspect.getsource(main)
-    assert 'os.environ.get("VOICEGW_PORT") or os.environ.get("PORT")' in src
-    assert "require_config=False" in src

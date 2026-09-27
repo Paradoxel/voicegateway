@@ -32,6 +32,7 @@ def test_latency_monitor_warning(caplog):
     with caplog.at_level(logging.WARNING):
         timer.mark_first_byte()
     timer.finish("slow/model")
+    assert "High TTFB" in caplog.text
 
 
 def test_latency_monitor_no_first_byte():

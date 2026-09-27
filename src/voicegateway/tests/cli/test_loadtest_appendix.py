@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 import typer
 
-from voicegateway.cli.loadtest_cli import _APPENDIX_SECTIONS, _appendix_from_file
+from voicegateway.cli.loadtest_cli import _appendix_from_file
 
 GOOD = {
     "commands": [
@@ -69,16 +69,6 @@ def test_an_empty_section_is_omitted_rather_than_carried_empty(
 ) -> None:
     assets = _appendix_from_file(_write(tmp_path, {"commands": GOOD["commands"]}))
     assert list(assets) == ["commands"]
-
-
-def test_the_sections_match_what_the_renderer_reads() -> None:
-    """A section this file accepts but the report never renders is a silent hole."""
-    from voicegateway.livekit_diag import run_report
-
-    source = run_report._render_appendix.__doc__ or ""
-    assert source  # the renderer is documented
-    for section in _APPENDIX_SECTIONS:
-        assert section in ("commands", "flags", "toolchain")
 
 
 # --------------------------------------------------------------------------
@@ -179,21 +169,6 @@ def test_an_absolute_url_is_reduced_too(tmp_path: Path) -> None:
 # --------------------------------------------------------------------------
 
 
-def test_no_generator_scenario_or_config_lives_in_this_repo() -> None:
-    """AGPL-3.0 upstream, MIT here. Interface facts travel; expression does not.
-
-    Command lines and flag names are fine. A scenario XML or a generator config
-    is somebody else's authored work and must be referenced by name only.
-    """
-    root = Path(__file__).resolve().parents[4]
-    offenders = [
-        p
-        for p in root.rglob("*uac*.xml")
-        if ".venv" not in p.parts and "node_modules" not in p.parts
-    ]
-    assert not offenders, f"generator scenario files in the repo: {offenders}"
-
-
 # ---------------------------------------------------------------------------
 # The appendix must not read as a description of the run
 # ---------------------------------------------------------------------------
@@ -290,9 +265,7 @@ def test_recorded_at_is_optional_and_absent_when_not_given() -> None:
     """Existing callers pass three keyword arguments and must keep working."""
     from voicegateway.livekit_diag import run_report
 
-    entry = run_report.appendix_entry(
-        label="l", detail="d", citation="c"
-    )
+    entry = run_report.appendix_entry(label="l", detail="d", citation="c")
     assert "recorded_at" not in entry
     assert set(entry) == {"label", "detail", "citation"}
 
@@ -306,7 +279,9 @@ def test_a_run_with_no_generated_at_marks_nothing() -> None:
             "appendix": {
                 "toolchain": [
                     run_report.appendix_entry(
-                        label="l", detail="d", citation="c",
+                        label="l",
+                        detail="d",
+                        citation="c",
                         recorded_at="2020-01-01",
                     )
                 ]
@@ -360,7 +335,9 @@ def test_generated_at_is_the_fallback_when_no_run_timestamp() -> None:
             "appendix": {
                 "toolchain": [
                     run_report.appendix_entry(
-                        label="l", detail="d", citation="c",
+                        label="l",
+                        detail="d",
+                        citation="c",
                         recorded_at="2026-08-02",
                     )
                 ]

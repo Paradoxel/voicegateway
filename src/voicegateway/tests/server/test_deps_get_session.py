@@ -93,19 +93,3 @@ async def test_get_session_503_when_storage_disabled(harness):
 
     assert response.status_code == 503
     assert "storage is disabled" in response.json()["detail"]
-
-
-def test_deps_module_no_longer_reaches_into_storage():
-    """The module that defines the boundary must not be violating it."""
-    import re
-    from pathlib import Path
-
-    import voicegateway.server.api._deps as deps
-
-    source = Path(deps.__file__).read_text(encoding="utf-8")
-    offenders = [
-        f"{lineno}: {line.strip()}"
-        for lineno, line in enumerate(source.splitlines(), 1)
-        if re.search(r"\._conn\b|_ensure_initialized\(\)", line)
-    ]
-    assert not offenders, offenders

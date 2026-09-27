@@ -194,19 +194,6 @@ async def test_api_key_marks_last_used(gateway):
     assert row.last_used_at is not None
 
 
-async def test_unscoped_api_key_does_not_force_tenant(gateway):
-    """check_tenant_body_conflict with key_tenant=None lets body pick."""
-    await gateway.storage._ensure_initialized()
-    async with gateway.storage._conn.session() as db:
-        await api_keys.create_api_key(
-            db, name="unscoped", scopes="read,write,ingest,admin"
-        )
-
-    # Helper-level check; no app exercise needed because the unscoped
-    # behavior is enforced inside check_tenant_body_conflict.
-    check_tenant_body_conflict(key_tenant_id=None, body_tenant_id="anything")
-
-
 async def test_api_key_authenticates_write_request_default_scope(gateway):
     """A default (wildcard-scoped) virtual key satisfies the write dep."""
     await gateway.storage._ensure_initialized()

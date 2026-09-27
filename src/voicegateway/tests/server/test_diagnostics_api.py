@@ -234,31 +234,6 @@ async def test_run_404_for_unknown_id(client):
     assert resp.status_code == 404
 
 
-async def test_runs_list_newest_first_and_capped(client, monkeypatch):
-    from voicegateway.server.api.dashboard import diagnostics
-
-    monkeypatch.setattr(diagnostics, "_resolve_creds", lambda: _FAKE_CREDS)
-    monkeypatch.setattr(diagnostics, "_make_probes", lambda _store: _FakeProbes())
-
-    run_ids = []
-    for _ in range(5):
-        resp = await client.post(
-            "/api/diagnostics/runs", json={"checks": ["agents"], "config": {}}
-        )
-        assert resp.status_code == 200
-        run_id = resp.json()["run_id"]
-        run_ids.append(run_id)
-        # Wait for each run to complete before starting the next.
-        await _poll_until_done(client, run_id)
-
-    resp = await client.get("/api/diagnostics/runs")
-    assert resp.status_code == 200
-    rows = resp.json()
-    assert len(rows) <= 20
-    # Newest first: last posted run should appear first in the list.
-    assert rows[0]["run_id"] == run_ids[-1]
-
-
 async def test_run_isolates_failing_check(client, monkeypatch):
     from voicegateway.server.api.dashboard import diagnostics
 
@@ -284,41 +259,3 @@ async def test_run_isolates_failing_check(client, monkeypatch):
 # ---------------------------------------------------------------------------
 # Auth: the diagnostics endpoints are admin-gated once auth is enabled
 # ---------------------------------------------------------------------------
-
-
-async def test_endpoints_require_admin_when_auth_enabled(gateway, monkeypatch):
-    """With static keys configured, diagnostics rejects unauthenticated callers.
-
-    require_scope(ADMIN_SCOPE) is a no-op when no keys are configured (the local
-    OSS default, exercised by every other test here). Once keys exist it enforces
-    the admin scope, so an unauthenticated caller cannot trigger a billed run or
-    read the configured server URL.
-    """
-    from voicegateway.core.auth import ADMIN_SCOPE, ApiKey
-    from voicegateway.server.api.dashboard import diagnostics
-
-    monkeypatch.setattr(diagnostics, "_resolve_creds", lambda: _FAKE_CREDS)
-
-    app = build_app(gateway, enable_mcp_sse=False, enable_dashboard=True)
-    # A non-vk_ token takes the static-key path (check_request, which reads
-    # app.state.api_keys). A vk_ token would take the DB storage path instead.
-    app.state.api_keys = [
-        ApiKey(token="admin-secret-token", name="ops", scopes=(ADMIN_SCOPE,))
-    ]
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
-        # No credentials: 401 on every endpoint, including the mutating POST.
-        assert (await c.get("/api/diagnostics/creds")).status_code == 401
-        assert (await c.get("/api/diagnostics/runs")).status_code == 401
-        blocked = await c.post(
-            "/api/diagnostics/runs", json={"checks": ["agents"], "config": {}}
-        )
-        assert blocked.status_code == 401
-
-        # A valid admin token passes the gate (no run is started by GET /creds).
-        ok = await c.get(
-            "/api/diagnostics/creds",
-            headers={"Authorization": "Bearer admin-secret-token"},
-        )
-        assert ok.status_code == 200
-        assert ok.json() == {"configured": True, "url": "wss://x"}

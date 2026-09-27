@@ -118,21 +118,6 @@ with patch("httpx.AsyncClient", return_value=ctx):
         assert await provider.health_check() is False
 ```
 
-### Resolving a `provider/model` string
-
-```python
-from voicegateway.core.model_resolution import ModelResolutionError, resolve_model
-
-
-def test_resolve_model():
-assert resolve_model("deepgram/nova-3") == ("deepgram", "nova-3")
-
-
-def test_resolve_model_unknown_provider():
-with pytest.raises(ModelResolutionError, match="Unknown provider"):
-        resolve_model("made-up-co/whisper-1")
-```
-
 ### Testing cost calculations
 
 ```python
