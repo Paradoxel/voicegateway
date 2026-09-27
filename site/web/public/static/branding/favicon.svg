@@ -1,16 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
-  <defs>
-    <linearGradient id="vg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#14b8c4"/>
-      <stop offset="1" stop-color="#1f96aa"/>
-    </linearGradient>
-  </defs>
-  <rect width="32" height="32" rx="8" fill="url(#vg)"/>
-  <svg x="5" y="5" width="22" height="22" viewBox="104 176 472 300" fill="none">
-    <path d="M140 420 A200 200 0 0 1 540 420" stroke="#ffffff" stroke-opacity="0.35" stroke-width="44" stroke-linecap="round"/>
-    <path d="M140 420 A200 200 0 0 1 283 198" stroke="#ffffff" stroke-width="44" stroke-linecap="round"/>
-    <line x1="340" y1="420" x2="238" y2="206" stroke="#ffffff" stroke-width="22" stroke-linecap="round"/>
-    <circle cx="340" cy="420" r="34" fill="#ffffff"/>
-    <circle cx="340" cy="420" r="16" fill="#1f96aa"/>
-  </svg>
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="VoiceGateway">
+  <rect width="64" height="64" rx="14" fill="#0a0a0a"/>
+  <g transform="translate(1.8 14.4) scale(0.6)" fill="none" stroke-width="10" stroke-linecap="round">
+    <path d="M16 27V39M34 4.5V26.5M52 5V19" stroke="#fafafa"/>
+    <path d="M73.4 20.1A38 38 0 0 1 88 50" stroke="#cba6f7"/>
+    <path d="M50 50L62 29.2" stroke="#fafafa" stroke-width="8"/>
+    <circle cx="50" cy="50" r="9" fill="#fafafa" stroke="none"/>
+  </g>
 </svg>
