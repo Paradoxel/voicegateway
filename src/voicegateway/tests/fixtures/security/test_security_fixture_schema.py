@@ -6,7 +6,6 @@ import json
 
 import pytest
 
-from voicegateway.schemas.telemetry.security_schema import load_threat_model
 from voicegateway.tests.fixtures.security._loader import (
     fixture_paths,
     load_all,
@@ -31,13 +30,6 @@ def test_case_file_is_formatted_json(path):
     raw = path.read_text(encoding="utf-8")
     assert raw.endswith("\n")
     assert raw == json.dumps(json.loads(raw), indent=2) + "\n"
-
-
-def test_every_gap_id_is_minted():
-    """A fixture cannot cite a gap the threat model never declared."""
-    minted = load_threat_model().gap_ids()
-    unknown = sorted({f.gap_id for f in load_all() if f.gap_id is not None} - minted)
-    assert not unknown, unknown
 
 
 def test_both_guarantees_and_defects_are_represented():

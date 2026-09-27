@@ -1,4 +1,4 @@
-"""Typed shape for the Wave 0 cross-tenant security fixtures.
+"""Typed shape for the cross-tenant security fixtures.
 
 A fixture is one request made by one actor against one victim tenant, plus
 what the contract says must happen. Three kinds exist, and the ``kind`` field
@@ -14,12 +14,12 @@ selects which other fields are required:
     Production deviates. Both ``contract`` and ``observed`` are required and
     they must differ, which is enforced here rather than left to review. The
     runner asserts ``observed`` (documenting today) and separately asserts
-    ``contract`` under a strict xfail (the Wave 1 target).
+    ``contract`` under a strict xfail (the target).
 
 ``absence``
     No surface exists to enforce the rule yet. ``absent_surfaces`` is
     required, and the runner asserts those attributes genuinely do not exist,
-    so "planned" is falsifiable rather than a promise.
+    so the gap is falsifiable rather than a promise.
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ class Expectation(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     #: Accepts a set so a contract can say "any 4xx refusal" without pinning
-    #: an implementation choice Wave 1 has not made yet.
+    #: an implementation choice the fix has not made yet.
     status_code: list[int] = Field(min_length=1)
     #: Rows attributable to the victim tenant that the actor caused to be
     #: written, or was able to read. ``None`` where the case does not count.

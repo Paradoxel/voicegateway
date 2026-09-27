@@ -15,7 +15,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -25,7 +24,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -91,7 +89,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-002",
-      "wave": 1,
       "note": "Tenant is enforced; this legacy route does not yet apply the principal project allowlist."
     },
     {
@@ -101,7 +98,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-002",
-      "wave": 1,
       "note": "Tenant is enforced; this legacy route does not yet apply the principal project allowlist."
     },
     {
@@ -159,7 +155,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-002",
-      "wave": 1,
       "note": "Tenant is enforced; this legacy route does not yet apply the principal project allowlist."
     },
     {
@@ -169,7 +164,6 @@
       "status": "gap",
       "tenant_scoped": false,
       "gap_id": "VG-SEC-002",
-      "wave": 1,
       "note": "Tenant is enforced; this legacy route does not yet apply the principal project allowlist."
     },
     {
@@ -179,7 +173,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-002",
-      "wave": 1,
       "note": "Tenant is enforced; this legacy route does not yet apply the principal project allowlist."
     },
     {
@@ -205,7 +198,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys. Also takes a project identifier with no project check (VG-SEC-002)."
     },
     {
@@ -215,7 +207,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -225,7 +216,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys. Also takes a project identifier with no project check (VG-SEC-002)."
     },
     {
@@ -235,7 +225,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-002",
-      "wave": 1,
       "note": "Tenant is enforced; this legacy route does not yet apply the principal project allowlist."
     },
     {
@@ -245,7 +234,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-002",
-      "wave": 1,
       "note": "Tenant is enforced; this legacy route does not yet apply the principal project allowlist."
     },
     {
@@ -255,7 +243,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-002",
-      "wave": 1,
       "note": "Tenant is enforced; this legacy route does not yet apply the principal project allowlist."
     },
     {
@@ -281,7 +268,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-002",
-      "wave": 1,
       "note": "Tenant is enforced; this legacy route does not yet apply the principal project allowlist."
     },
     {
@@ -339,7 +325,6 @@
       "status": "gap",
       "tenant_scoped": false,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -349,7 +334,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-002",
-      "wave": 1,
       "note": "Tenant is enforced; this legacy route does not yet apply the principal project allowlist."
     },
     {
@@ -447,7 +431,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -457,7 +440,6 @@
       "status": "gap",
       "tenant_scoped": false,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -467,7 +449,6 @@
       "status": "gap",
       "tenant_scoped": false,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys. Also takes a project identifier with no project check (VG-SEC-002)."
     },
     {
@@ -477,7 +458,6 @@
       "status": "gap",
       "tenant_scoped": false,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -487,7 +467,6 @@
       "status": "gap",
       "tenant_scoped": false,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -497,7 +476,6 @@
       "status": "gap",
       "tenant_scoped": false,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -507,7 +485,6 @@
       "status": "gap",
       "tenant_scoped": false,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -533,7 +510,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys. Also takes a project identifier with no project check (VG-SEC-002)."
     },
     {
@@ -551,7 +527,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys. Also takes a project identifier with no project check (VG-SEC-002)."
     },
     {
@@ -593,7 +568,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys. Also takes a project identifier with no project check (VG-SEC-002)."
     },
     {
@@ -611,7 +585,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys. Also takes a project identifier with no project check (VG-SEC-002)."
     },
     {
@@ -621,7 +594,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -631,7 +603,6 @@
       "status": "gap",
       "tenant_scoped": false,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys. Also takes a project identifier with no project check (VG-SEC-002)."
     },
     {
@@ -657,7 +628,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -675,7 +645,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-002",
-      "wave": 1,
       "note": "Tenant is enforced; this legacy route does not yet apply the principal project allowlist."
     },
     {
@@ -685,7 +654,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys. Also takes a project identifier with no project check (VG-SEC-002)."
     },
     {
@@ -695,7 +663,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-002",
-      "wave": 1,
       "note": "Tenant is enforced; this legacy route does not yet apply the principal project allowlist."
     },
     {
@@ -705,7 +672,6 @@
       "status": "gap",
       "tenant_scoped": false,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -763,7 +729,6 @@
       "status": "gap",
       "tenant_scoped": true,
       "gap_id": "VG-SEC-002",
-      "wave": 1,
       "note": "Tenant is enforced; this legacy route does not yet apply the principal project allowlist."
     },
     {
@@ -781,7 +746,6 @@
       "status": "gap",
       "tenant_scoped": false,
       "gap_id": "VG-SEC-004",
-      "wave": 1,
       "note": "Answers an unauthenticated caller regardless of configured keys."
     },
     {
@@ -855,44 +819,6 @@
       "status": "enforced",
       "tenant_scoped": true,
       "note": "Tenant is always server-derived and project allowlists are enforced for every envelope."
-    }
-  ],
-  "planned_routes": [
-    {
-      "method": "POST",
-      "path": "/v1/telemetry/traces",
-      "gap_id": "VG-SEC-003",
-      "wave": 1,
-      "required_scope": "ingest",
-      "note": "OTLP trace receiver. Namespaced under /v1/telemetry/ deliberately: the conventional OTLP paths /v1/metrics and /v1/logs already exist here as GET reads, so a bare OTLP mount would differ from them by method alone. Tenant must come from the verified principal, never from correlation.tenant_id in the payload (VG-SEC-015).",
-      "tenant_source": "server_derived"
-    },
-    {
-      "method": "POST",
-      "path": "/v1/telemetry/metrics",
-      "gap_id": "VG-SEC-003",
-      "wave": 1,
-      "required_scope": "ingest",
-      "note": "OTLP metric receiver. See the traces row on the path collision. Tenant must come from the verified principal, never from correlation.tenant_id in the payload (VG-SEC-015).",
-      "tenant_source": "server_derived"
-    },
-    {
-      "method": "POST",
-      "path": "/v1/telemetry/logs",
-      "gap_id": "VG-SEC-003",
-      "wave": 1,
-      "required_scope": "ingest",
-      "note": "OTLP log receiver. See the traces row on the path collision. Tenant must come from the verified principal, never from correlation.tenant_id in the payload (VG-SEC-015).",
-      "tenant_source": "server_derived"
-    },
-    {
-      "method": "GET",
-      "path": "/v1/sensitive-access",
-      "gap_id": "VG-SEC-013",
-      "wave": 3,
-      "required_scope": "admin",
-      "note": "Read-side audit trail of SensitiveAccessEvent. Nothing audits reads today.",
-      "tenant_source": "not_applicable"
     }
   ]
 }

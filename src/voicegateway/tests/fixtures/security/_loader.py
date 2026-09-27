@@ -1,4 +1,4 @@
-"""Load the Wave 0 security fixtures off disk.
+"""Load the cross-tenant security fixtures off disk.
 
 Mirrors ``fixtures/streaming/_loader.py``: the JSON files are the source of
 truth, the loader validates them into typed objects, and every consumer goes

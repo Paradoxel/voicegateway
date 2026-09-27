@@ -1,10 +1,8 @@
-"""core.scopes is the runtime vocabulary; ScopeName is the contract. They agree.
+"""core.scopes is the runtime vocabulary; ScopeName mirrors it. They agree.
 
-Two modules name the same six scopes for different reasons. ``ScopeName`` is
-the Wave 0 contract, consumed by the authorization matrix and the threat
-model. ``core.scopes`` is what production imports at runtime, and it has to be
-a leaf: ``repository`` imports it, so if it imported back into ``repository``
-or ``core.auth`` the cycle Wave 1 exists to break would simply move.
+``core.scopes`` is what production imports at runtime, and it has to be a
+leaf: ``repository`` imports it, so if it imported back into ``repository``
+or ``core.auth`` the import cycle it exists to break would simply move.
 """
 
 from __future__ import annotations
