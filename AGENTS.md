@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+This file provides guidance to coding agents (Codex, Claude Code, and others) when working with code in this repository.
 
 ## Project
 
@@ -21,7 +21,7 @@ pytest --cov                                                   # with coverage
 # CLI
 voicegw init                             # create config template
 voicegw serve --port 8080                # start HTTP API
-voicegw dashboard                        # start web UI (port 9090)
+voicegw dashboard                        # open the web UI served by `voicegw serve`
 voicegw status                           # show provider status
 
 # Dashboard frontend (src/dashboard/frontend/)
@@ -35,26 +35,37 @@ docker compose --profile local up -d     # + Ollama
 
 ## Architecture
 
-**Request flow:** User code → `Gateway.stt()`/`llm()`/`tts()` → Router → Provider → Middleware pipeline (cost tracking, latency, rate limiting, fallback) → SQLite storage → Dashboard reads stored data.
+**Metering flow:** `voicegateway.attach(session)` detects the framework (LiveKit `AgentSession` or Pipecat `PipelineTask`) without importing it eagerly, subscribes to its metrics events, and `MetricCapture` turns each STT/LLM/TTS metric into a `RequestRecord` (audio seconds, tokens, characters). `inference/pricing/` prices it through `voice-prices`, then a `Sink` writes it: embedded SQLite by default, a remote collector in fleet mode, or ClickHouse. The dashboard and `/v1/*` read what the sinks stored. `guard()` wraps a single provider for fallback, rate limit and budget and writes no metrics.
+
+**Metering (`src/voicegateway/inference/`):**
+- `session/attach.py`: `attach()`, framework detection, turn, dead-air, tool-call, transcript and snapshot capture; `session/policy.py` holds the named capture policies
+- `session/capture.py`: `MetricCapture`, converts framework metrics to priced records
+- `livekit/`, `pipecat/`: framework-specific `guard()` implementations and the Pipecat `Observer`
+- `pricing/`: `calculate_cost_detail()` dispatches by modality to `voice-prices`; self-hosted `local/*` and `ollama/*` price at $0, catalogue matches without a rate are tagged `voice-prices-unrated`
+- `providers/`: 11 `BaseProvider` classes, registered in `core/registry.py`. They back the server's provider management and status endpoints, not the metering path.
 
 **Core (`src/voicegateway/core/`):**
-- `gateway.py` — Main orchestrator, entry point for all requests
-- `config.py` — YAML parser with `${ENV_VAR}` substitution
-- `router.py` — Resolves `provider/model` strings to provider instances
-- `registry.py` — Lazy provider factory (instantiates on first use)
-- `model_id.py` — Parses `provider/model` format strings
+- `gateway.py`: `Gateway`, a shared-state container (config, rate card, cost tracker, rate limiter, budget enforcer, storage) for the server, CLI and MCP; not a request router
+- `config.py`: YAML parser with `${ENV_VAR}` substitution
+- `container.py`, `app_wiring.py`: dependency-injector and SQLAlchemy wiring for the FastAPI app
+- `provider_names.py`: canonical provider ids, resolved against the `voice-prices` catalog
+- `model_resolution.py`: parses `provider/model` strings
 
-**Providers (`src/voicegateway/inference/providers/`):** Each extends `BaseProvider` from `base_provider.py`. 11 implementations covering cloud and local models.
+**Accounting and billing:** `accounting/` holds versioned, strict wire contracts (decimal-string money) and `AccountingOutbox`, a restart-safe store-and-forward queue to a collector's `/v1/accounting/usage`. `billing/` holds the rate card, rating, and margin reconciliation.
 
-**Middleware (`src/voicegateway/middleware/`):** Cost tracking, latency monitoring, rate limiting, request logging, fallback chains. All wrap provider calls. v0.6.0 guardrails are LLM-side only: `InstrumentedLLM._apply_guardrails` uses `middleware/guardrails.py` and `middleware/guardrail_prompts/` to inject the guardrail prompt/tool, reject reserved tool-name collisions, and write fired/bypassed audit rows.
+**Middleware (`src/voicegateway/middleware/`):** cost tracking, latency monitoring, rate limiting, budget enforcement, turn tracking, dead-air detection, replay capture, and background workers (node samples, latency and agent observations).
 
-**Storage (`src/voicegateway/storage/`):** SQLite backend with `RequestRecord` dataclass plus guardrail policy snapshots and `guardrail_events` audit rows. Includes SQL views for daily costs and per-project aggregation.
+**Storage:** SQLModel models in `models/`, repositories in `repository/`, services in `services/` (`storage_service.py` is the SQLite facade, `sinks.py` the write seam). Alembic migrations live in `alembic/` at the repo root and define the `daily_costs` and `project_daily_costs` views. Optional ClickHouse support lives in `clickhouse/`.
 
-**HTTP API (`src/voicegateway/server/main.py`):** FastAPI with endpoints at `/health`, `/v1/status`, `/v1/models`, `/v1/costs`, `/v1/projects`, `/v1/logs`, `/v1/metrics`.
+**HTTP API (`src/voicegateway/server/main.py`):** one FastAPI app mounting the system router (`/health`), the `/v1/*` router (`server/api/`: costs, projects, logs, metrics, models, providers, accounting, ingest, sessions, and more), the dashboard router, and the openorca router. The MCP server behind `voicegw mcp` lives in `server/mcp/`.
 
-**Dashboard API (`/api/*`):** served by the COMBINED server, not by a separate process. `server/routes.py` builds `dashboard_router = APIRouter(prefix="/api")` from the modules in `server/api/dashboard/` (status, costs, projects, sessions, calls, correlation, nodes, metrics, agents, diagnostics, loadtest, replay, api_keys, branding, health, auth_status), and `server/main.py` includes it. Read endpoints go here under `require_principal`; `/v1/*` above is the write and ingest surface. The standalone dashboard FastAPI at `src/dashboard/api/main.py` was deleted in 2026-05; the routes moved, they did not go away.
+**Dashboard API (`/api/*`):** served by the same combined server, not a separate process. `server/routes.py` builds `dashboard_router = APIRouter(prefix="/api")` from `server/api/dashboard/` and `server/main.py` includes it. Read endpoints live here under `require_principal`; `/v1/*` above is the write and ingest surface. The standalone dashboard FastAPI at `src/dashboard/api/main.py` was deleted in 2026-05: the routes moved, they did not go away.
 
 **Dashboard UI (`src/dashboard/`):** two SPAs plus branding assets. `frontend/` is the React/TypeScript/Vite dashboard (Recharts, Neo-Brutalism aesthetic); `console/` is a smaller SPA built on `@openorca-ui/react`. `api/` now holds only `static/branding/` images and no Python. The combined server serves the built SPA at `/` (see `server/static.py`).
+
+**Docs:** The Mintlify documentation site (<https://docs.voicegateway.dev>) lives in this repo under `docs/` (config in `docs/docs.json`, pages as `.md`, shared brand assets under `docs/assets/`). Docs version with the code: change the docs in the same PR as any behavior or API change. Mintlify deploys `docs/` from this repo's default branch.
+
+**Marketing site:** Only the Next.js landing page at <https://voicegateway.dev> lives in the separate [`mahimailabs/voicegateway-web`](https://github.com/mahimailabs/voicegateway-web) repo (deployed on Vercel). The engine repo has no Vercel connection.
 
 **Public API:** `voicegateway/__init__.py` exports `attach`, `guard`, `Observer`, `register_worker`, `inference`, `__version__`. There is no `Gateway` / `ModelId` factory surface: it was removed in the framework-agnostic reshape, and metering now happens by wrapping instances you construct.
 
