@@ -1,13 +1,13 @@
 name: Docs
 
-# The docs site in docs/ is a Fumadocs static export. ci.yml only triggers on
+# The docs site in site/docs/ is a Fumadocs static export. ci.yml only triggers on
 # src/voicegateway/** and friends, so without this a docs-only PR had no gate:
 # a page with broken MDX or a bad link would merge clean and fail the deploy.
 
 on:
   pull_request:
     paths:
-      - 'docs/**'
+      - 'site/**'
       - '.github/workflows/docs.yml'
 
 # Build-only: the job reads the repo and writes nothing back.
@@ -20,14 +20,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: docs
+        working-directory: site/docs
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: docs/package-lock.json
+          cache-dependency-path: site/docs/package-lock.json
       # House voice: colons and commas, never an em dash.
       - name: No em dashes
         run: '! grep -rn "—" content/'

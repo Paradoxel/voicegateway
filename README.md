@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/banner.gif" alt="VoiceGateway" width="100%" />
+<img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/site/docs/public/assets/banner.gif" alt="VoiceGateway" width="100%" />
 
 <p>
-  <a href="https://docs.voicegateway.dev"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/badges/docs.svg" height="30" alt="Docs"/></a>
-  <a href="https://pypi.org/project/voicegateway"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/badges/pypi.svg" height="30" alt="PyPI"/></a>
-  <img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/badges/python.svg" height="30" alt="Python 3.11+"/>
-  <a href="https://docs.livekit.io/agents"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/badges/livekit.svg" height="30" alt="LiveKit Agents 1.x"/></a>
-  <a href="LICENSE"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/badges/license.svg" height="30" alt="MIT License"/></a>
+  <a href="https://docs.voicegateway.dev"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/site/docs/public/assets/badges/docs.svg" height="30" alt="Docs"/></a>
+  <a href="https://pypi.org/project/voicegateway"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/site/docs/public/assets/badges/pypi.svg" height="30" alt="PyPI"/></a>
+  <img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/site/docs/public/assets/badges/python.svg" height="30" alt="Python 3.11+"/>
+  <a href="https://docs.livekit.io/agents"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/site/docs/public/assets/badges/livekit.svg" height="30" alt="LiveKit Agents 1.x"/></a>
+  <a href="LICENSE"><img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/site/docs/public/assets/badges/license.svg" height="30" alt="MIT License"/></a>
 </p>
 
 <p>
@@ -83,7 +83,7 @@ Building a text-only LLM app with no voice? [LiteLLM](https://docs.litellm.ai/) 
 Self-hosted at `http://localhost:8080`. Bundled, no SaaS account, no data leaves your stack.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/docs/public/assets/dashboard.png" alt="VoiceGateway dashboard: cost by provider and model" width="100%" />
+  <img src="https://raw.githubusercontent.com/mahimailabs/voicegateway/main/site/docs/public/assets/dashboard.png" alt="VoiceGateway dashboard: cost by provider and model" width="100%" />
   <br/>
   <sub>Example numbers. Click through the real thing, no login, at <a href="https://voicegateway.dev/demo">voicegateway.dev/demo</a>.</sub>
 </div>

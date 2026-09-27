@@ -36,7 +36,7 @@ Use [Conventional Commits](https://docs.voicegateway.dev/docs).
 Describe what changed and why.
 ### Improve documentation
 
-Docs source lives in `docs/` in this repo and is rendered by Mintlify at `https://docs.voicegateway.dev`. Even small fixes (typos, broken links, clearer examples) are welcome.
+Docs source lives in `site/docs/` in this repo and is published at `https://docs.voicegateway.dev`. Even small fixes (typos, broken links, clearer examples) are welcome.
 
 ## PR checklist
 

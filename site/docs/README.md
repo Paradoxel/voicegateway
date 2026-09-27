@@ -10,7 +10,8 @@ npx wrangler deploy   # serves ./out at docs.voicegateway.dev (wrangler.jsonc)
 ```
 
 - Pages: MDX in `content/docs/`, ordered by `content/docs/meta.json`. Every page needs `title` and `description` frontmatter.
-- Site name and GitHub links: `lib/shared.ts`. Theme: `app/global.css`, the mahimai.ca palette.
+- Site name and GitHub links: `lib/shared.ts`. Palette: `../theme.css`, shared with `site/web`; `app/global.css` maps it onto Fumadocs, and `next.config.mjs` widens the Turbopack root to `site/` so the import resolves.
+- Cloudflare: the project root is `site/docs`, but the build reads `../theme.css`, so deploy from a full checkout.
 - Brand assets: `public/assets/`. The repo README links them by raw URL, so moving one breaks it.
 - Don't edit `.source/`; Fumadocs MDX generates it.
 

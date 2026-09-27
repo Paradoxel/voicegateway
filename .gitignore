@@ -188,9 +188,6 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
-# mkdocs documentation
-/site
-
 # mypy
 .mypy_cache/
 .dmypy.json
@@ -383,10 +380,10 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
-# Docs app build output and deps (docs/.gitignore covers the rest)
-docs/node_modules/
-# The Python template's `lib/` rule above would swallow the docs app's source.
-!docs/lib/
+# The site/ apps (landing page and docs). Each app's own .gitignore covers its
+# build output; the Python template's `lib/` rule above would swallow their source.
+site/*/node_modules/
+!site/**/lib/
 
 # Local Alembic sandbox DB created by 'alembic check' against the
 # fallback alembic.ini URL. Real DBs live under ~/.config/voicegateway/.

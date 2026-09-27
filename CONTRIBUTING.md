@@ -49,18 +49,19 @@ Before opening your PR, verify locally:
 ## Documentation
 
 The docs site at <https://docs.voicegateway.dev> is a [Fumadocs](https://fumadocs.dev)
-app in `docs/`, statically exported and served from Cloudflare
-(`docs/wrangler.jsonc`). Pages are MDX in `docs/content/docs/`, ordered by
-`meta.json`; brand assets live in `docs/public/assets/`. Docs version with the
+app in `site/docs/`, statically exported and served from Cloudflare
+(`site/docs/wrangler.jsonc`). Pages are MDX in `site/docs/content/docs/`,
+ordered by `meta.json`; brand assets live in `site/docs/public/assets/`, and the
+shared palette in `site/theme.css`. Docs version with the
 code: change them in the same PR as any behaviour or API change.
 
 The site is deliberately small while the project is early. Add a page only when
 an existing one cannot hold the answer.
 
 ```bash
-cd docs && npm ci
+cd site/docs && npm ci
 npm run dev     # http://localhost:3000/docs
-npm run build   # the static export in docs/out, the same command CI runs
+npm run build   # the static export in site/docs/out, the same command CI runs
 ```
 
 `.github/workflows/docs.yml` builds the site and fails on any em dash in the
@@ -102,8 +103,9 @@ src/
 
 alembic/               # migration environment and versions. Root, not under
 alembic.ini            # src/: pyproject force-includes it into the wheel.
-docs/                  # the Fumadocs site (docs.voicegateway.dev): MDX pages in
+site/docs/             # the Fumadocs site (docs.voicegateway.dev): MDX pages in
                        # content/docs/, brand assets in public/assets/
+site/theme.css         # the shared palette
 contributing/          # contributor guides: setup, tests, style, providers
 specs/                 # internal design specs, not published
 examples/              # runnable files that docs/examples/*.md link to by
