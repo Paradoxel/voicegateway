@@ -34,7 +34,7 @@
         form.innerHTML = '<p class="done">You are on the list. We will write once, when it ships.</p>';
         return;
       }
-      const body: { error?: string } = await res.json().catch(() => ({}));
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
       status.textContent =
         body.error === 'invalid email'
           ? 'That email address does not look right. Check it and try again.'
