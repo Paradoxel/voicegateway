@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { ensureSignupsTable, getSql, json } from '../../lib/db';
+import { json, type SignupMeta } from '../../lib/waitlist';
 
-// On-demand on the Worker: this writes to the database on every request.
+// On-demand on the Worker: this writes to KV on every request.
 export const prerender = false;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -67,25 +67,16 @@ export const POST: APIRoute = async ({ request }) => {
   const rawSource = typeof record?.source === 'string' ? record.source : '';
   const source = rawSource.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 64) || 'landing';
 
-  const sql = getSql();
-  if (!sql) {
-    // Storage not connected: do not tell the user they are on the list.
-    console.error('waitlist: no DATABASE_URL / POSTGRES_URL configured');
-    return json({ ok: false, error: 'not configured' }, 503);
-  }
-
   let isNew = false;
   try {
-    await ensureSignupsTable(sql);
-    const rows = (await sql`
-      INSERT INTO signups (email, source)
-      VALUES (${email}, ${source})
-      ON CONFLICT (email) DO NOTHING
-      RETURNING email
-    `) as { email: string }[];
-    isNew = rows.length > 0;
+    // ponytail: get-then-put is not atomic; a double submit at the same instant can email twice.
+    if ((await env.WAITLIST.get(email)) === null) {
+      const metadata: SignupMeta = { source, ts: new Date().toISOString().slice(0, 19) };
+      await env.WAITLIST.put(email, '', { metadata });
+      isNew = true;
+    }
   } catch (err) {
-    console.error('waitlist: db insert failed', err);
+    console.error('waitlist: kv write failed', err);
     return json({ ok: false, error: 'storage error' }, 500);
   }
 

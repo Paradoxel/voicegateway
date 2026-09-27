@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
-import { getSql, json } from '../../lib/db';
+import { json, listSignups } from '../../lib/waitlist';
 
 // GET /api/stats?key=STATS_KEY
 // Waitlist signups: total, by source, by day, and the recent list, emails
@@ -57,34 +57,20 @@ export const GET: APIRoute = async ({ request }) => {
   // reveals its configuration to an unauthenticated caller.
   if (!key || provided !== key) return json({ ok: false, error: 'unauthorized' }, 401, NO_STORE);
 
-  const sql = getSql();
-  if (!sql) return json({ ok: false, error: 'storage not configured' }, 503, NO_STORE);
-
   let stats: Stats;
   try {
-    const [totalRow] = (await sql`SELECT count(*)::int AS n FROM signups`) as { n: number }[];
-    const bySourceRows = (await sql`
-      SELECT coalesce(source, 'unknown') AS source, count(*)::int AS n
-      FROM signups GROUP BY 1 ORDER BY 2 DESC
-    `) as { source: string; n: number }[];
-    const byDayRows = (await sql`
-      SELECT to_char(created_at, 'YYYY-MM-DD') AS day, count(*)::int AS n
-      FROM signups GROUP BY 1 ORDER BY 1 DESC LIMIT 30
-    `) as { day: string; n: number }[];
-    const recentRows = (await sql`
-      SELECT email,
-             to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS') AS ts,
-             coalesce(source, 'unknown') AS source
-      FROM signups ORDER BY created_at DESC LIMIT 200
-    `) as { email: string; ts: string; source: string }[];
+    const all = (await listSignups()).sort((a, b) => b.ts.localeCompare(a.ts));
+    const count = (key: (s: (typeof all)[number]) => string) =>
+      all.reduce<Record<string, number>>((acc, s) => ((acc[key(s)] = (acc[key(s)] ?? 0) + 1), acc), {});
+    const byDay = count((s) => s.ts.slice(0, 10));
     stats = {
-      total: totalRow?.n ?? 0,
-      bySource: Object.fromEntries(bySourceRows.map((r) => [r.source, r.n])),
-      byDay: Object.fromEntries(byDayRows.map((r) => [r.day, r.n])),
-      recent: recentRows,
+      total: all.length,
+      bySource: Object.fromEntries(Object.entries(count((s) => s.source)).sort((a, b) => b[1] - a[1])),
+      byDay: Object.fromEntries(Object.entries(byDay).slice(0, 30)),
+      recent: all.slice(0, 200),
     };
   } catch (err) {
-    console.error('stats: query failed', err);
+    console.error('stats: kv list failed', err);
     return json({ ok: false, error: 'query failed' }, 500, NO_STORE);
   }
 

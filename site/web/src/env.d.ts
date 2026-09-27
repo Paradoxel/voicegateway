@@ -3,8 +3,6 @@
 // declares, so these are declared here.
 declare namespace Cloudflare {
   interface Env {
-    DATABASE_URL?: string;
-    POSTGRES_URL?: string;
     STATS_KEY?: string;
     CF_ACCOUNT_ID?: string;
     CF_EMAIL_API_TOKEN?: string;
