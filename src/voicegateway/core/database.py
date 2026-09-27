@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import event
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -249,6 +249,23 @@ class Database:
                 raise
             finally:
                 await session.close()
+
+    @asynccontextmanager
+    async def write_session(self) -> AsyncGenerator[AsyncSession, None]:
+        """A session that reads, then writes, and must not lose the race.
+
+        On SQLite a deferred transaction takes the write lock only at its first
+        write. When another writer commits in between, SQLite refuses the
+        upgrade with ``database is locked`` at once, without waiting out
+        ``busy_timeout``, because the reader's snapshot is stale. ``BEGIN
+        IMMEDIATE`` takes the write lock before the read, so a concurrent writer
+        waits its turn instead. Postgres needs none of this: row locks and
+        READ COMMITTED already serialize the conflicting statements.
+        """
+        async with self.session() as session:
+            if self.is_sqlite:
+                await session.execute(text("BEGIN IMMEDIATE"))
+            yield session
 
     async def run_migrations(self) -> None:
         """Run ``alembic upgrade head``. Idempotent, and fails at most once.

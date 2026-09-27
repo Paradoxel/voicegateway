@@ -2,6 +2,13 @@
 
 import os
 import time
+
+# pytest's thread-exception hook imports tracemalloc lazily, from the dying
+# thread. When two aiosqlite worker threads die at once (the teardown race the
+# filterwarnings entry in pyproject.toml silences) they race that first import,
+# the hook itself raises KeyError, and that fails whichever test is running
+# because the filter never sees it. Importing it here, first, removes the race.
+import tracemalloc  # noqa: F401
 import uuid
 
 import pytest

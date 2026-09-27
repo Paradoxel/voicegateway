@@ -1,21 +1,10 @@
-"""Three presentation defects in a document a client is paying for.
+"""Presentation rules that are logic, not layout.
 
-None changes a number. All three were found by reading the rendered file, which
-is the only way any of them shows up: each looks correct in a payload and wrong
-on the page.
-
-**A duration a reader cannot check.** Wall time rendered as one decimal of a
-minute, so a 62-second step and a 66-second step both read "1.1 min". Anybody
-comparing the report against their own timing sees a figure that cannot be
-reconciled and has no way to tell rounding from disagreement.
-
-**A sentence running into a fragment.** The capacity refusal ended with a full
-stop and then appended the derivation's reason, which begins lowercase. It read
-as a typo in the one section that exists to explain an absence.
-
-**A blank cell.** Gates describing the whole fleet carried no subject, printing
-an empty cell beside populated ones, which reads as a rendering fault rather
-than as a scope.
+The page wording and order are pinned by the snapshots in test_load_report.py.
+What stays here is what a snapshot would hide the reason for: the duration unit
+boundary (62 s and 66 s both used to read "1.1 min"), an absent value never
+rendering as 0, an empty refusal reason still saying something, and fleet-wide
+gates naming their scope instead of printing a blank subject cell.
 """
 
 from __future__ import annotations
@@ -25,99 +14,35 @@ import pytest
 from voicegateway.livekit_diag import gates, run_report
 from voicegateway.livekit_diag.run_report import _duration_cell
 
-# --------------------------------------------------------------------------
-# Duration
-# --------------------------------------------------------------------------
 
-
-def test_a_sub_ten_minute_run_is_shown_in_seconds() -> None:
-    """The unit a ramp step is configured in."""
-    assert "62.0" in _duration_cell(62_005)
-    assert "s" in _duration_cell(62_005)
-    assert "min" not in _duration_cell(62_005)
-
-
-def test_two_durations_four_seconds_apart_are_distinguishable() -> None:
-    """The defect, stated as what it cost. Both used to read "1.1 min"."""
-    assert _duration_cell(62_000) != _duration_cell(66_000)
-
-
-def test_a_long_run_stays_in_minutes() -> None:
-    """An hour in seconds is not readable either."""
-    assert "min" in _duration_cell(3_600_000)
-    assert "60.0" in _duration_cell(3_600_000)
-
-
-def test_the_boundary_is_ten_minutes() -> None:
-    assert "s" in _duration_cell(599_000) and "min" not in _duration_cell(599_000)
-    assert "min" in _duration_cell(600_001)
-
-
-def test_an_absent_duration_is_not_rendered_as_zero() -> None:
-    assert "not measured" in _duration_cell(None)
-    assert "0" not in _duration_cell(None)
-
-
-def test_the_unit_is_not_double_spaced() -> None:
-    """_num already inserts a non-breaking space, so a leading one shows twice."""
-    for ms in (62_005, 3_600_000):
-        assert "&nbsp; " not in _duration_cell(ms)
-
-
-# --------------------------------------------------------------------------
-# The capacity refusal
-# --------------------------------------------------------------------------
-
-
-def _capacity_html(capacity: dict) -> str:
-    return run_report.render_load_html(
-        run_report.build_load_payload(
-            run={"id": "r", "artifact_sha256": "a" * 64},
-            tests=[],
-            capacity=capacity,
-        )
-    )
-
-
-def test_the_refusal_reason_is_not_run_into_the_sentence_before_it() -> None:
-    """The reason is a fragment and begins lowercase.
-
-    It used to sit under a "Why:" label BELOW a paragraph of standing policy,
-    which is where this assertion came from. It now leads, joined to the heading
-    sentence with a colon, because a reader arriving at a section with no table
-    read the policy first, concluded the report had failed to generate
-    something, and stopped. The rule being pinned is unchanged: a lowercase
-    fragment must never be concatenated after a full stop.
-    """
-    html = _capacity_html(
-        {"calls_per_node": None, "reason": "no step carried both a peak concurrency"}
-    )
-    assert "rests on. no step" not in html
-    assert "table: no step carried both a peak concurrency." in html
-
-
-def test_the_reason_is_still_shown_in_full() -> None:
-    """Separating it must not have dropped it. The reason is the whole value."""
-    reason = "no step recorded a target concurrency or an arrival rate"
-    assert run_report._esc(reason) in _capacity_html(
-        {"calls_per_node": None, "reason": reason}
-    )
+@pytest.mark.parametrize(
+    ("ms", "cell"),
+    [
+        # Seconds below ten minutes, so 62 s and 66 s are distinguishable.
+        (62_005, "62.0&nbsp;s"),
+        (66_000, "66.0&nbsp;s"),
+        (599_000, "599.0&nbsp;s"),
+        # Minutes from the boundary up: an hour in seconds is not readable.
+        (600_001, "10.0&nbsp;min"),
+        (3_600_000, "60.0&nbsp;min"),
+        # Absent is words, never 0.
+        (None, '<span class="nm">not measured</span>'),
+    ],
+)
+def test_duration_cell(ms, cell) -> None:
+    assert _duration_cell(ms) == cell
 
 
 def test_a_refusal_with_no_reason_still_says_something() -> None:
-    """An empty reason is a gap in whoever built the payload, and says so.
-
-    The wording moved with the sentence above it; the rule did not. A refusal
-    that renders as a heading and nothing else reads as a section that failed to
-    generate.
-    """
-    html = _capacity_html({"calls_per_node": None, "reason": ""})
+    """An empty reason is a gap in whoever built the payload, and says so."""
+    html = run_report.render_load_html(
+        run_report.build_load_payload(
+            run={"id": "r", "artifact_sha256": "a" * 64},
+            tests=[],
+            capacity={"calls_per_node": None, "reason": ""},
+        )
+    )
     assert "no reason was recorded" in html
-
-
-# --------------------------------------------------------------------------
-# The blank subject
-# --------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("gate_fn", [gates.node_cpu_gates, gates.node_memory_gates])
@@ -129,7 +54,6 @@ def test_a_fleet_wide_gate_names_its_scope(gate_fn) -> None:
 
 
 def test_no_gate_row_leaves_the_subject_blank() -> None:
-    """Every row in the table identifies what it is about."""
     results = [
         *gates.node_cpu_gates([]),
         *gates.node_memory_gates([]),
